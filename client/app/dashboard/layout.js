@@ -1,14 +1,21 @@
-import {Sidebar} from "@/app/components/ui/sidebar";
+import Sidebar from "@/app/components/ui/sidebar"
+import Link from "next/link";
+import { Settings, User, GraduationCap, BookCopy } from "lucide-react";
+import { SidebarItem } from "@/app/components/ui/sidebar";
 
-export const metadata = {
-    title: "Homebase",
-    description: "The only place you need to go to for creating high quality study guides and problem sets for all of your hard classes.",
-  };
-  
-  export default function DashboardLayout({ children }) {
-    return (
-      <>
-        {children}
-      </>
-    );
-  }
+export default function DashboardLayout({ children }) {
+  return (
+        <div className="flex h-screen">
+          <Sidebar>
+            <SidebarItem icon = {<GraduationCap size={25}/>} text = "Your College" active = {false} alert = {true}/>
+            <SidebarItem icon = {<BookCopy size={25}/>} text = "Your Classes" active = {false} />
+            <SidebarItem icon = {<User size={25}/>} text = "Your Profile" active = {false}/>
+            <hr className = "my-1 p-1.5"/>
+            <SidebarItem icon = {<Settings size={25}/>} text = "Settings" active = {true}/>
+          </Sidebar>
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </div>
+  )
+}
