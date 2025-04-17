@@ -8,7 +8,7 @@ export default function DashboardLayout({ children }) {
         <div className="flex h-screen">
           <Sidebar>
             <SidebarItem icon = {<GraduationCap size={25}/>} text = "Your College" active = {false} alert = {true}/>
-            <SidebarItem icon = {<BookCopy size={25}/>} text = "Your Classes" active = {false} />
+            <SidebarItem icon = {<BookCopy size={25}/>} text = "Your Classes" active = {false} isDropdown = {true} defaultOpen = {true} items = {[{label: "Class 1", href: "/class/1"}, {label: "Class 2", href: "/class/2"}]} />
             <SidebarItem icon = {<User size={25}/>} text = "Your Profile" active = {false}/>
             <hr className = "my-1 p-1.5"/>
             <SidebarItem icon = {<Settings size={25}/>} text = "Settings" active = {true}/>
