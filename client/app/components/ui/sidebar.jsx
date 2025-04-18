@@ -2,7 +2,7 @@
 import { ChevronFirst, ChevronLast, ChevronDown } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import {useState, createContext, useContext}  from "react";
+import {useState, createContext, useContext, useEffect}  from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -66,6 +66,12 @@ export default function Sidebar({children}) {
 export function SidebarItem({icon, text, active, alert, isDropdown = false, defaultOpen = false, items = [], fetchKey}) {
   const { expanded } = useContext(SidebarContext);
   const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (!expanded) {
+      setOpen(false);
+    }
+  }, [expanded]);
 
   return (
     <li className="relative flex flex-col">
