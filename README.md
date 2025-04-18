@@ -35,32 +35,6 @@ It’s Thursday night before a Calc mid‑term. You search “implicit different
 - **Authentication**: Clerk  
 - **Database**: MongoDB  
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js (>=14.x)  
-- Yarn  
-- MongoDB instance or Atlas cluster  
-- Clerk account and credentials
-
-### Installation
-
-```bash
-git clone https://github.com/<your-org>/homebase.git
-cd homebase
-yarn install
-cp .env.example .env
-# Update .env with your MongoDB URI and Clerk keys
-yarn dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
-
 ## License
 
 MIT License.
