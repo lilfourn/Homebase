@@ -2,6 +2,11 @@ const mongoose = require('mongoose')
 
 const CourseSchema = mongoose.Schema(
     {
+        userId: {
+            type: String,
+            required: [true, "UserId required"]
+        }, 
+
         name: {
             type: String,
             required: [true, "Please enter course name"]
