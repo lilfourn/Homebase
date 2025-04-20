@@ -1,5 +1,5 @@
 "use client"
-import { ChevronFirst, ChevronLast, ChevronDown } from "lucide-react";
+import { ChevronFirst, ChevronLast, ChevronUp } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import {useState, createContext, useContext, useEffect}  from "react";
@@ -22,11 +22,12 @@ import { cn } from "@/lib/utils";
  * @property {boolean} [defaultOpen=false] - Whether the dropdown is open by default
  * // TODO: replace mock items with SWR fetch '/api/sidebar/'+fetchKey once DB ready
  * @property {SidebarChild[]} [items=[]] - Child items for dropdown
+ * @property {React.ReactNode} [customContent] - Custom content to render in the dropdown
  * @property {string} [fetchKey] - Reserved for future DB hook
  */
 
 // Create a context for the expanded state
-const SidebarContext = createContext();
+export const SidebarContext = createContext();
 
 export default function Sidebar({children}) {
   const [expanded, setExpanded] = useState(true)
@@ -63,7 +64,7 @@ export default function Sidebar({children}) {
  * Sidebar item component that can be a regular item or a dropdown
  * @param {SidebarItemProps} props - The component props
  */
-export function SidebarItem({icon, text, active, alert, isDropdown = false, defaultOpen = false, items = [], fetchKey}) {
+export function SidebarItem({icon, text, active, alert, isDropdown = false, defaultOpen = false, items = [], customContent, fetchKey}) {
   const { expanded } = useContext(SidebarContext);
   const [open, setOpen] = useState(defaultOpen);
 
@@ -88,7 +89,7 @@ export function SidebarItem({icon, text, active, alert, isDropdown = false, defa
           {text}
         </span>
         {isDropdown && (
-          <ChevronDown className={`ml-auto transition-transform ${expanded ? "" : "opacity-0"} ${open ? "rotate-180" : ""}`} />
+          <ChevronUp className={`ml-auto transition-transform ${expanded ? "" : "opacity-0"} ${open ? "rotate-180" : ""}`} />
         )}
         {!isDropdown && alert && (
           <div className={`absolute ${expanded ? "right-2" : "right-1 top-1"} w-2 h-2 rounded bg-blue-600`} />
@@ -115,6 +116,14 @@ export function SidebarItem({icon, text, active, alert, isDropdown = false, defa
               </Link>
             </li>
           ))}
+          {customContent && (
+            <div className={cn(
+              "transition-all duration-300",
+              expanded ? "opacity-100 pl-0" : "opacity-0 flex justify-center"
+            )}>
+              {customContent}
+            </div>
+          )}
         </ul>
       )}
     </li>

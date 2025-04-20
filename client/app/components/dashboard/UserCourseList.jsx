@@ -1,43 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react";
-import { deleteCourse } from "../../api/courses.api";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+import { useState } from "react";
+import { useCourses } from "@/app/context/CourseContext";
 
 export default function UserCourseList() {
-  const [courses, setCourses] = useState([]);
-  const [error, setError] = useState("");
+  const { courses, error, loading, deleteCourse } = useCourses();
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const fetchUserCourses = () => {
-    fetch(`${API_URL}/api/courses/mine`, { credentials: "include" })
-      .then(res => {
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        return res.json();
-      })
-      .then(data => setCourses(data))
-      .catch(err => setError(err.message));
-  };
-
-  useEffect(() => {
-    console.log("👉 Fetching from", API_URL);
-    fetchUserCourses();
-  }, []);
 
   const handleDelete = async (id) => {
     try {
       setIsDeleting(true);
       await deleteCourse(id);
-      // Refresh the course list after deletion
-      fetchUserCourses();
+      // The course list will automatically update via context
     } catch (err) {
-      setError(err.message);
+      console.error("Error deleting course:", err);
     } finally {
       setIsDeleting(false);
     }
   };
 
+  if (loading) return <p>Loading courses...</p>;
   if (error) return <p>Error: {error}</p>;
   if (!courses.length) return <p>No courses yet.</p>;
 

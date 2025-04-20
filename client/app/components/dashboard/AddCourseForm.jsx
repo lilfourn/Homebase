@@ -1,98 +1,182 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect, useContext } from "react";
+import { PlusCircle, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose
+} from "@/app/components/ui/dialog";
+import { Button } from "@/app/components/ui/button";
+import { SidebarContext } from "@/app/components/ui/sidebar";
+import { useCourses } from "@/app/context/CourseContext";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-
-export default function AddCourseForm({ onSuccess }) {
+export default function AddCourseForm() {
+  const { expanded } = useContext(SidebarContext);
+  const { addCourse } = useCourses();
+  
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isFormValid, setIsFormValid] = useState(false);
+  
+  // Check if required fields are filled
+  const checkFormValidity = () => {
+    return name.trim() !== "" && code.trim() !== "";
+  };
+  
+  // Update form validity when name or code changes
+  useEffect(() => {
+    setIsFormValid(checkFormValidity());
+  }, [name, code]);
 
+  // Update form validity when required fields change
+  const updateFormValidity = () => {
+    setIsFormValid(name.trim() !== "" && code.trim() !== "");
+  };
+  
+  // Handle name change
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+    updateFormValidity();
+  };
+  
+  // Handle code change
+  const handleCodeChange = (e) => {
+    setCode(e.target.value);
+    updateFormValidity();
+  };
+  
   const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // 1) log the payload
-    console.log("→ Adding course:", { name, code, description, icon });
+    // Prepare the course data
+    const courseData = { name, code, description, icon };
+    console.log("→ Adding course:", courseData);
 
     try {
-      const res = await fetch(`${API_URL}/api/courses`, {
-        method: "POST",
-        credentials: "include",         // if you’re sending cookies/auth
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, code, description, icon })
-      });
-
-      // 2) log status
-      console.log("← Response status:", res.status);
-
-      const body = await res.json();
-      // 3) log response body
-      console.log("← Response body:", body);
-
-      if (!res.ok) {
-        throw new Error(body.message || "Failed to add");
-      }
-
+      // Use the context method to add the course
+      await addCourse(courseData);
+      
+      // Reset form fields on success
+      setName(""); 
+      setCode(""); 
+      setDescription(""); 
+      setIcon("");
+      setOpen(false);
+      
       console.log("✓ Course added successfully");
-      setName(""); setCode(""); setDescription(""); setIcon("");
-      onSuccess?.(body);
     } catch (err) {
       console.error("✗ AddCourseForm error:", err);
-      setError(err.message);
+      setError(err.message || "Failed to add course");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h2>Add a Course</h2>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="default" className={`cursor-pointer bg-blue-600 text-white transition-all duration-300 ${expanded ? "w-full" : "w-10 h-10 p-0"}`}>
+          <PlusCircle className="h-5 w-5" />
+          <span className={`overflow-hidden transition-all duration-300 ml-2 ${expanded ? "w-auto opacity-100" : "w-0 opacity-0"}`}>
+            Add Course
+          </span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle>Add a Course</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Name
+              <input
+                value={name}
+                onChange={handleNameChange}
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                placeholder="Course name"
+              />
+            </label>
+          </div>
 
-      <label>
-        Name
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          required
-        />
-      </label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Code
+              <input
+                value={code}
+                onChange={handleCodeChange}
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                placeholder="Course code"
+              />
+            </label>
+          </div>
 
-      <label>
-        Code
-        <input
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          required
-        />
-      </label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Description
+              <input
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                placeholder="Course description"
+              />
+            </label>
+          </div>
 
-      <label>
-        Description
-        <input
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-        />
-      </label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Icon URL
+              <input
+                value={icon}
+                onChange={e => setIcon(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                placeholder="https://example.com/icon.png"
+              />
+            </label>
+          </div>
 
-      <label>
-        Icon URL
-        <input
-          value={icon}
-          onChange={e => setIcon(e.target.value)}
-        />
-      </label>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
 
-      <button type="submit" disabled={loading}>
-        {loading ? "Saving…" : "Save Course"}
-      </button>
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-    </form>
+          <DialogFooter className="sm:justify-end">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" className="cursor-pointer">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className={`cursor-pointer ${isFormValid ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4" />
+                  Saving...
+                </>
+              ) : "Save Course"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
