@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Settings, User, GraduationCap, BookCopy } from "lucide-react";
 import { SidebarItem } from "@/app/components/ui/sidebar";
 import AddCourseForm from "@/app/components/dashboard/AddCourseForm";
+import UserCourseList from "@/app/components/dashboard/UserCourseList";
 import { CourseProvider } from "@/app/context/CourseContext";
 
 export default function DashboardLayout({ children }) {
@@ -19,7 +20,8 @@ export default function DashboardLayout({ children }) {
             defaultOpen = {true} 
             items = {[]} 
             customContent = {
-              <div className="py-2">
+              <div className="py-2 space-y-3 w-full px-3">
+                <UserCourseList />
                 <AddCourseForm />
               </div>
             }
