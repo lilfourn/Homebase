@@ -1,5 +1,3 @@
-import SchoolForm from "../components/forms/SchoolForm";
-
 export default function Dashboard() {
   return (
     <main className="Dashboard p-6">
@@ -7,7 +5,6 @@ export default function Dashboard() {
       <p className="text-gray-600">
         Manage your courses and profile from the sidebar.
       </p>
-      <SchoolForm />
     </main>
   );
 }

@@ -1,9 +1,19 @@
-const express = require('express')
-const User = require("../models/users.model")
-const { viewUsers } = require("../controllers/user.controller")
-const router = express.Router()
+const express = require("express");
+const User = require("../models/users.model");
+const {
+  viewUsers,
+  updateUserSchool,
+  getUserByClerkId,
+} = require("../controllers/user.controller");
+const router = express.Router();
 
 // view all users
-router.get("/", viewUsers)
+router.get("/", viewUsers);
 
-module.exports = router
+// get user by clerk ID
+router.get("/:userId", getUserByClerkId);
+
+// update user school
+router.put("/school", updateUserSchool);
+
+module.exports = router;

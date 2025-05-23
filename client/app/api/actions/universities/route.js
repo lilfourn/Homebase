@@ -5,9 +5,12 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const name = searchParams.get("name");
 
-    if (!name) {
+    if (!name || name.length < 3) {
       return NextResponse.json(
-        { error: "School name parameter is required" },
+        {
+          error:
+            "School name parameter is required and must be at least 3 characters long",
+        },
         { status: 400 }
       );
     }
