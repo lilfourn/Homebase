@@ -4,6 +4,7 @@ const {
   viewUsers,
   updateUserSchool,
   getUserByClerkId,
+  syncUser,
 } = require("../controllers/user.controller");
 const router = express.Router();
 
@@ -15,5 +16,8 @@ router.get("/:userId", getUserByClerkId);
 
 // update user school
 router.put("/school", updateUserSchool);
+
+// sync user data from Clerk
+router.post("/sync", syncUser);
 
 module.exports = router;
