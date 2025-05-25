@@ -1,3 +1,4 @@
+"use client";
 import SchoolSelectionModal from "@/app/components/auth/SchoolSelectionModal";
 import AddCourseForm from "@/app/components/dashboard/AddCourseForm";
 import UserCourseList from "@/app/components/dashboard/UserCourseList";
@@ -7,19 +8,28 @@ import { CourseProvider } from "@/app/context/CourseContext";
 import { SchoolUpdateProvider } from "@/app/context/SchoolUpdateContext";
 import { BookCopy, Settings, User } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }) {
+  const pathname = usePathname();
+
+  // Determine active states based on current path
+  const isSchoolActive = pathname === "/dashboard";
+  const isClassesActive = pathname.startsWith("/dashboard/classes");
+  const isProfileActive = pathname.startsWith("/dashboard/profile");
+  const isSettingsActive = pathname.startsWith("/dashboard/settings");
+
   return (
     <SchoolUpdateProvider>
       <CourseProvider>
         <SchoolSelectionModal />
         <div className="flex h-screen">
           <Sidebar>
-            <SchoolSidebarItem />
+            <SchoolSidebarItem active={isSchoolActive} href="/dashboard" />
             <SidebarItem
               icon={<BookCopy size={25} />}
               text="Your Classes"
-              active={false}
+              active={isClassesActive}
               isDropdown={true}
               defaultOpen={true}
               items={[]}
@@ -33,13 +43,15 @@ export default function DashboardLayout({ children }) {
             <SidebarItem
               icon={<User size={25} />}
               text="Your Profile"
-              active={false}
+              active={isProfileActive}
+              href="/dashboard/profile"
             />
             <hr className="my-1 p-1.5" />
             <SidebarItem
               icon={<Settings size={25} />}
               text="Settings"
-              active={true}
+              active={isSettingsActive}
+              href="/dashboard/settings"
             />
           </Sidebar>
           <main className="flex-1 overflow-y-auto">{children}</main>

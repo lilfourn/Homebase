@@ -14,7 +14,7 @@ try {
 export function useUserSchool() {
   const { user } = useUser();
   const { updateCount } = useSchoolUpdate();
-  const [schoolName, setSchoolName] = useState("Your College");
+  const [fullSchoolName, setFullSchoolName] = useState("Your College");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -28,12 +28,11 @@ export function useUserSchool() {
       setIsLoading(true);
       setError(null);
       const school = await fetchUserSchool(user.id);
-      const formattedName = formatSchoolName(school);
-      setSchoolName(formattedName);
+      setFullSchoolName(school || "Your College");
     } catch (err) {
       console.error("Failed to load school name:", err);
       setError(err.message);
-      setSchoolName("Your College");
+      setFullSchoolName("Your College");
     } finally {
       setIsLoading(false);
     }
@@ -48,10 +47,11 @@ export function useUserSchool() {
   };
 
   return {
-    schoolName,
+    schoolName: fullSchoolName, // Full school name for all uses
+    sidebarSchoolName: formatSchoolName(fullSchoolName), // Keep for backward compatibility
     isLoading,
     error,
     refreshSchoolName,
-    hasSchool: schoolName !== "Your College",
+    hasSchool: fullSchoolName !== "Your College",
   };
 }
