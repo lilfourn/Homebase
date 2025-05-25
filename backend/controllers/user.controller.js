@@ -67,10 +67,6 @@ const getUserByClerkId = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    console.log(
-      `[User ${userId}]: Found in DB. School: '${user.school || "Not set"}'.`
-    );
-
     // Check if user has a school but no school colors
     if (
       user.school &&
@@ -111,15 +107,12 @@ const getUserByClerkId = async (req, res) => {
       user.schoolColors?.primary &&
       user.schoolColors?.secondary
     ) {
-      console.log(
-        `[User ${userId}]: School '${user.school}' colors ALREADY STORED: Primary - ${user.schoolColors.primary}, Secondary - ${user.schoolColors.secondary}`
-      );
+      // This console.log will be removed
     } else if (!user.school) {
       console.log(
         `[User ${userId}]: No school set. Colors cannot be determined or stored.`
       );
     } else {
-      // This case should ideally not be reached if the logic above is comprehensive
       console.log(
         `[User ${userId}]: School colors status indeterminate. School: '${
           user.school
@@ -127,8 +120,24 @@ const getUserByClerkId = async (req, res) => {
       );
     }
 
-    res.status(200).json(user);
+    let responseUser = user.toObject ? user.toObject() : { ...user };
+
+    if (
+      !responseUser.customPrimaryColor &&
+      responseUser.schoolColors?.primary
+    ) {
+      responseUser.customPrimaryColor = responseUser.schoolColors.primary;
+    }
+    if (
+      !responseUser.customSecondaryColor &&
+      responseUser.schoolColors?.secondary
+    ) {
+      responseUser.customSecondaryColor = responseUser.schoolColors.secondary;
+    }
+
+    res.status(200).json(responseUser);
   } catch (error) {
+    console.error("[getUserByClerkId Controller Error]:", error);
     res.status(500).json({ message: error.message });
   }
 };

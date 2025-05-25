@@ -16,6 +16,7 @@ import {
   updateUserCustomThemeColors,
 } from "../../api/users.api"; // Adjusted path
 import { Button } from "../../components/ui/button"; // Assuming you have a Button component
+import { useSchoolUpdate } from "../../context/SchoolUpdateContext"; // Import the context hook
 
 // Helper component to display a color swatch
 const ColorSwatch = ({
@@ -65,6 +66,7 @@ const ColorSwatch = ({
 
 const ThemeConfiguration = () => {
   const { user: clerkUser, isLoaded } = useUser();
+  const { triggerSchoolUpdate } = useSchoolUpdate(); // Get the trigger function
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -130,6 +132,7 @@ const ThemeConfiguration = () => {
       setCustomPrimary(updatedUser.user?.customPrimaryColor || "");
       setCustomSecondary(updatedUser.user?.customSecondaryColor || "");
       setSaveSuccess(true);
+      triggerSchoolUpdate(); // <--- Trigger update here
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to save changes:", err);
@@ -145,18 +148,20 @@ const ThemeConfiguration = () => {
     setSaveSuccess(false);
     setSaveError("");
     try {
+      // When resetting, we ensure custom colors are cleared in the backend call
       const updatedUser = await updateUserCustomThemeColors(
         clerkUser.id,
-        "",
-        "",
-        null
+        "", // Explicitly send empty strings for custom colors
+        "", // Explicitly send empty strings for custom colors
+        null // Send null for logo to indicate reset if backend handles it, or keep as is if backend resets logo based on empty colors
       );
       setUserData(updatedUser.user);
       setCustomPrimary("");
       setCustomSecondary("");
-      setSchoolLogo(null);
-      setSchoolLogoPreview(updatedUser.user?.schoolLogo || "");
+      setSchoolLogo(null); // Clear any staged logo
+      setSchoolLogoPreview(updatedUser.user?.schoolLogo || ""); // Update preview with school's default logo
       setSaveSuccess(true);
+      triggerSchoolUpdate(); // <--- Trigger update here
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to reset to school colors:", err);

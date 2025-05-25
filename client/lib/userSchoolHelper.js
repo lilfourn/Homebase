@@ -7,9 +7,18 @@ export async function fetchUserSchool(userId) {
     }
 
     const userData = await fetchUserByClerkId(userId);
-    return userData?.school || null;
+    if (userData) {
+      return {
+        school: userData.school,
+        schoolLogo: userData.schoolLogo,
+        schoolColors: userData.schoolColors,
+        customPrimaryColor: userData.customPrimaryColor,
+        customSecondaryColor: userData.customSecondaryColor,
+      };
+    }
+    return null;
   } catch (error) {
-    console.error("Error fetching user school:", error);
+    console.error("Error fetching user school data:", error);
     return null;
   }
 }
