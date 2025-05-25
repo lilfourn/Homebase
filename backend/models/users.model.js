@@ -38,6 +38,38 @@ const UserSchema = mongoose.Schema(
       trim: true,
     },
 
+    schoolLogo: {
+      type: String,
+      required: false,
+      default: "",
+      trim: true,
+    },
+
+    schoolColors: {
+      primary: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      secondary: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+    },
+
+    customPrimaryColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    customSecondaryColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     phoneNumbers: {
       type: [String],
       required: false,

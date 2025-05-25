@@ -5,6 +5,9 @@ const {
   updateUserSchool,
   getUserByClerkId,
   syncUser,
+  updateUserSchoolAndColors,
+  updateUserCustomColors,
+  upload,
 } = require("../controllers/user.controller");
 const router = express.Router();
 
@@ -19,5 +22,16 @@ router.put("/school", updateUserSchool);
 
 // sync user data from Clerk
 router.post("/sync", syncUser);
+
+// Update user's school and fetch/store school colors
+router.put("/school-colors", updateUserSchoolAndColors);
+
+// Update user's custom theme colors and potentially schoolLogo
+// The 'upload.single("schoolLogo")' middleware will process the file named "schoolLogo"
+router.put(
+  "/custom-colors",
+  upload.single("schoolLogo"),
+  updateUserCustomColors
+);
 
 module.exports = router;

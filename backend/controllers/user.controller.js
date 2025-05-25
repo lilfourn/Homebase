@@ -1,5 +1,20 @@
 const User = require("../models/users.model");
 const { clerkClient } = require("@clerk/express");
+const getSchoolColorsService =
+  require("../services/users/getSchoolColors").default;
+const multer = require("multer");
+const ImageKit = require("imagekit"); // Import ImageKit SDK
+
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Initialize ImageKit
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+});
 
 const viewUsers = async (req, res) => {
   try {
@@ -45,10 +60,71 @@ const getUserByClerkId = async (req, res) => {
       return res.status(400).json({ message: "userId is required" });
     }
 
-    const user = await User.findOne({ userId });
+    let user = await User.findOne({ userId });
 
     if (!user) {
+      console.log(`[User ${userId}]: Not found in DB.`);
       return res.status(404).json({ message: "User not found" });
+    }
+
+    console.log(
+      `[User ${userId}]: Found in DB. School: '${user.school || "Not set"}'.`
+    );
+
+    // Check if user has a school but no school colors
+    if (
+      user.school &&
+      (!user.schoolColors?.primary || !user.schoolColors?.secondary)
+    ) {
+      console.log(
+        `[User ${userId}]: School '${user.school}' present, but colors are missing. Attempting to fetch...`
+      );
+      try {
+        const colors = await getSchoolColorsService(user.school);
+        if (colors && colors.primaryColor && colors.secondaryColor) {
+          user.schoolColors = {
+            primary: colors.primaryColor,
+            secondary: colors.secondaryColor,
+          };
+          user = await User.findOneAndUpdate(
+            { userId },
+            { $set: { schoolColors: user.schoolColors } },
+            { new: true }
+          );
+          console.log(
+            `[User ${userId}]: Colors for '${user.school}' fetched and SAVED successfully: Primary - ${colors.primaryColor}, Secondary - ${colors.secondaryColor}`
+          );
+        } else {
+          console.warn(
+            `[User ${userId}]: Could not fetch or validate colors for school: '${user.school}'. Colors remain NOT STORED.`
+          );
+        }
+      } catch (colorError) {
+        console.error(
+          `[User ${userId}]: Error fetching colors for '${user.school}':`,
+          colorError.message,
+          ". Colors remain NOT STORED."
+        );
+      }
+    } else if (
+      user.school &&
+      user.schoolColors?.primary &&
+      user.schoolColors?.secondary
+    ) {
+      console.log(
+        `[User ${userId}]: School '${user.school}' colors ALREADY STORED: Primary - ${user.schoolColors.primary}, Secondary - ${user.schoolColors.secondary}`
+      );
+    } else if (!user.school) {
+      console.log(
+        `[User ${userId}]: No school set. Colors cannot be determined or stored.`
+      );
+    } else {
+      // This case should ideally not be reached if the logic above is comprehensive
+      console.log(
+        `[User ${userId}]: School colors status indeterminate. School: '${
+          user.school
+        }', Colors: ${JSON.stringify(user.schoolColors)}`
+      );
     }
 
     res.status(200).json(user);
@@ -120,9 +196,142 @@ const syncUser = async (req, res) => {
   }
 };
 
+const updateUserSchoolAndColors = async (req, res) => {
+  try {
+    const { userId, schoolName } = req.body;
+
+    if (!userId || !schoolName) {
+      return res
+        .status(400)
+        .json({ message: "userId and schoolName are required" });
+    }
+
+    // Fetch school colors
+    const colors = await getSchoolColorsService(schoolName);
+
+    if (!colors || !colors.primaryColor || !colors.secondaryColor) {
+      // Log the issue but proceed to update the school name at least
+      console.warn(
+        `Could not fetch colors for ${schoolName}, or colors were incomplete.`
+      );
+    }
+
+    // Prepare update data
+    // We always update the school name.
+    // We only update schoolColors if they were successfully fetched.
+    const updateData = {
+      school: schoolName,
+      ...(colors &&
+        colors.primaryColor &&
+        colors.secondaryColor && {
+          schoolColors: {
+            primary: colors.primaryColor,
+            secondary: colors.secondaryColor,
+          },
+        }),
+    };
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      { $set: updateData },
+      { new: true, upsert: false } // Don't upsert here, user should exist via sync
+    );
+
+    if (!updatedUser) {
+      return res
+        .status(404)
+        .json({ message: "User not found, cannot update school and colors." });
+    }
+
+    res.status(200).json({
+      message: "School and colors updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating school and colors:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateUserCustomColors = async (req, res) => {
+  try {
+    const { userId, primaryColor, secondaryColor } = req.body;
+    let newLogoUrl = null; // Will store the ImageKit URL
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    const hexColorRegex = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
+    if (
+      (primaryColor && !hexColorRegex.test(primaryColor)) ||
+      (secondaryColor && !hexColorRegex.test(secondaryColor))
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid hex color format provided." });
+    }
+
+    const updateData = {};
+    if (primaryColor !== undefined)
+      updateData.customPrimaryColor = primaryColor;
+    if (secondaryColor !== undefined)
+      updateData.customSecondaryColor = secondaryColor;
+
+    if (req.file) {
+      try {
+        const uploadResponse = await imagekit.upload({
+          file: req.file.buffer, // Pass the file buffer
+          fileName: `${userId}-${Date.now()}-${req.file.originalname.replace(
+            /\s+/g,
+            "-"
+          )}`, // Create a unique filename
+        });
+
+        newLogoUrl = uploadResponse.url;
+        updateData.schoolLogo = newLogoUrl;
+      } catch (uploadError) {
+        return res.status(500).json({
+          message:
+            "ImageKit Upload Failed: " +
+            (uploadError.message || "Unknown error"),
+          errorDetails: uploadError,
+        });
+      }
+    } // end if (req.file)
+
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No color or logo data provided to update." });
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({
+      message: "Custom theme updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating custom theme:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   viewUsers,
   updateUserSchool,
   getUserByClerkId,
   syncUser,
+  updateUserSchoolAndColors,
+  updateUserCustomColors,
+  upload, // multer instance
 };

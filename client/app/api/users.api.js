@@ -67,3 +67,61 @@ export async function manualSyncUser(userId) {
   if (!res.ok) throw new Error(`Manual sync error: ${res.status}`);
   return res.json();
 }
+
+export async function updateUserSchoolAndColors(userId, schoolName) {
+  const res = await fetch(`${API_URL}/api/users/school-colors`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      userId,
+      schoolName,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Update school and colors error: ${res.status}`);
+  return res.json();
+}
+
+export async function updateUserCustomThemeColors(
+  userId,
+  primaryColor,
+  secondaryColor,
+  schoolLogoFile
+) {
+  let headers = {};
+  let body;
+
+  if (schoolLogoFile instanceof File) {
+    const formData = new FormData();
+    formData.append("userId", userId);
+    formData.append("primaryColor", primaryColor);
+    formData.append("secondaryColor", secondaryColor);
+    formData.append("schoolLogo", schoolLogoFile, schoolLogoFile.name);
+    body = formData;
+  } else {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify({
+      userId,
+      primaryColor,
+      secondaryColor,
+    });
+  }
+
+  const res = await fetch(`${API_URL}/api/users/custom-colors`, {
+    method: "PUT",
+    headers: headers,
+    credentials: "include",
+    body: body,
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    throw new Error(
+      `Update custom theme colors error: ${res.statusText} (${res.status}). Server said: ${errorBody}`
+    );
+  }
+  return res.json();
+}
