@@ -63,10 +63,7 @@ function ThemeApplicator() {
 
             const softenedSecondaryColor = lightenColor(secondaryColor, 40); // Soften by 40%
             const primaryTextColor = getTextColorForBackground(primaryColor);
-            const lightenedPrimaryColor = lightenColor(primaryColor, 20); // Lighten primary by 20% for hover
-            const lightenedPrimaryTextColor = getTextColorForBackground(
-              lightenedPrimaryColor
-            );
+            const hoverPrimaryColor = lightenColor(primaryColor, 15); // Lighten primary by 15% for a softer hover
             const softSecondaryTextColor = getTextColorForBackground(
               softenedSecondaryColor
             );
@@ -78,8 +75,7 @@ function ThemeApplicator() {
                 --custom-secondary-color: ${secondaryColor};
                 --custom-soft-secondary-color: ${softenedSecondaryColor};
                 --custom-soft-secondary-text-color: ${softSecondaryTextColor};
-                --custom-primary-color-lightened: ${lightenedPrimaryColor};
-                --custom-primary-color-lightened-text: ${lightenedPrimaryTextColor};
+                --custom-hover-primary-color: ${hoverPrimaryColor};
               }
 
               /* === Primary Buttons === */
@@ -102,9 +98,9 @@ function ThemeApplicator() {
               input[type="submit"][class*="bg-blue-500"]:hover,
               input[type="submit"][class*="bg-blue-600"]:hover,
               div[class*="bg-blue-600"]:hover {
-                background-color: var(--custom-primary-color-lightened) !important;
-                color: var(--custom-primary-color-lightened-text) !important;
-                border-color: var(--custom-primary-color-lightened) !important;
+                background-color: var(--custom-hover-primary-color) !important; /* Softer hover background */
+                color: var(--custom-primary-text-color) !important; /* Original text color */
+                border-color: var(--custom-hover-primary-color) !important; /* Softer hover border */
               }
               
               /* === Active Sidebar Items (e.g., 'Your Profile') === */
