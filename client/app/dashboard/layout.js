@@ -6,7 +6,10 @@ import UserCourseList from "@/app/components/dashboard/UserCourseList";
 import SchoolSidebarItem from "@/app/components/ui/SchoolSidebarItem";
 import Sidebar, { SidebarItem } from "@/app/components/ui/sidebar";
 import { CourseProvider } from "@/app/context/CourseContext";
-import { SchoolUpdateProvider } from "@/app/context/SchoolUpdateContext";
+import {
+  SchoolUpdateProvider,
+  useSchoolUpdate,
+} from "@/app/context/SchoolUpdateContext";
 import { useUser } from "@clerk/nextjs";
 import { BookCopy, Settings, User } from "lucide-react";
 import Link from "next/link";
@@ -40,10 +43,11 @@ function getTextColorForBackground(hexColor) {
   return brightness > 125 ? "#000000" : "#ffffff"; // Return black for light backgrounds, white for dark
 }
 
-export default function DashboardLayout({ children }) {
-  const pathname = usePathname();
+// New component to handle theme application
+function ThemeApplicator() {
   const { user: clerkUser } = useUser();
   const [themeStyles, setThemeStyles] = useState("");
+  const { updateCount } = useSchoolUpdate();
 
   useEffect(() => {
     if (clerkUser && clerkUser.id) {
@@ -138,7 +142,20 @@ export default function DashboardLayout({ children }) {
           console.error("Failed to load user theme data from backend:", error);
         });
     }
-  }, [clerkUser]);
+  }, [clerkUser, updateCount]);
+
+  return themeStyles ? (
+    <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
+  ) : null;
+}
+
+export default function DashboardLayout({ children }) {
+  const pathname = usePathname();
+  // Removed: const { user: clerkUser } = useUser();
+  // Removed: const [themeStyles, setThemeStyles] = useState("");
+  // Removed: const { updateCount } = useSchoolUpdate();
+
+  // Removed useEffect for theme fetching, it's now in ThemeApplicator
 
   // Determine active states based on current path
   const isSchoolActive = pathname === "/dashboard";
@@ -149,10 +166,7 @@ export default function DashboardLayout({ children }) {
   return (
     <SchoolUpdateProvider>
       <CourseProvider>
-        {/* Inject dynamic styles into the head */}
-        {themeStyles && (
-          <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
-        )}
+        <ThemeApplicator />
         <SchoolSelectionModal />
         <div className="flex h-screen">
           <Sidebar>
