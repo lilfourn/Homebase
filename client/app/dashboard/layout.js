@@ -102,6 +102,18 @@ function ThemeApplicator() {
                 color: var(--custom-primary-text-color) !important; /* Original text color */
                 border-color: var(--custom-hover-primary-color) !important; /* Softer hover border */
               }
+
+              /* === Unlimited Credits Button === */
+              .unlimited-credits-btn {
+                background-color: var(--custom-primary-color) !important;
+                color: var(--custom-primary-text-color) !important;
+                border-color: var(--custom-primary-color) !important;
+              }
+              .unlimited-credits-btn:hover {
+                background-color: var(--custom-hover-primary-color) !important;
+                color: var(--custom-primary-text-color) !important;
+                border-color: var(--custom-hover-primary-color) !important;
+              }
               
               /* === Active Sidebar Items (e.g., 'Your Profile') === */
               /* This targets the active state styling in SidebarItem */

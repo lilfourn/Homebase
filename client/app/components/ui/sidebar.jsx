@@ -72,7 +72,7 @@ export default function Sidebar({ children }) {
           <Link
             href="/payment"
             className={cn(
-              "overflow-hidden transition-all duration-300 ease-in-out cursor-pointer flex justify-center items-center bg-blue-600 text-white rounded-md",
+              "unlimited-credits-btn overflow-hidden transition-all duration-300 ease-in-out cursor-pointer flex justify-center items-center bg-blue-600 text-white rounded-md",
               expanded ? "w-48 ml-3 p-3" : "w-0 ml-0 opacity-0"
             )}
           >
