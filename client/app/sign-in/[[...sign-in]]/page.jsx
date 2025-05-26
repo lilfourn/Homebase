@@ -6,11 +6,11 @@ import {BackgroundGradientAnimation} from '@/app/components/ui/background-gradie
 export default function Page() {
   return (
     <>
-    <div className="h-screen flex justify-center items-center">
-      <Link href="/"><span  className="absolute top-2 left-2"><BackButton/></span></Link>
-      <SignIn signInForceRedirectUrl='/dashboard'/>
-      <img src="/brand/homebase.png" alt="Homebase Logo" className="w-32 absolute top-2 right-2 transition-all ease-in-out duration-300 hover:scale-105 cursor-pointer hover:opacity-95"/>
-    </div>
+      <div className="h-screen flex justify-center items-center">
+        <Link href="/" legacyBehavior><span  className="absolute top-2 left-2"><BackButton/></span></Link>
+        <SignIn signInForceRedirectUrl='/dashboard'/>
+        <img src="/brand/homebase.png" alt="Homebase Logo" className="w-32 absolute top-2 right-2 transition-all ease-in-out duration-300 hover:scale-105 cursor-pointer hover:opacity-95"/>
+      </div>
     </>
-  )
+  );
 }

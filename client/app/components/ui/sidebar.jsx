@@ -69,20 +69,20 @@ export default function Sidebar({ children }) {
           <span className={`flex items-center ${expanded ? "" : "mx-auto"}`}>
             <UserButton />
           </span>
-          <Link href="/payment">
-            <div
-              className={`overflow-hidden transition-all duration-300 ease-in-out cursor-pointer flex justify-center items-center bg-blue-600 text-white rounded-md ${
-                expanded ? "w-48 ml-3 p-3" : "w-0 ml-0 opacity-0"
+          <Link
+            href="/payment"
+            className={cn(
+              "overflow-hidden transition-all duration-300 ease-in-out cursor-pointer flex justify-center items-center bg-blue-600 text-white rounded-md",
+              expanded ? "w-48 ml-3 p-3" : "w-0 ml-0 opacity-0"
+            )}
+          >
+            <button
+              className={`w-full cursor-pointer overflow-hidden whitespace-nowrap text-center font-bold text-sm ${
+                expanded ? "opacity-100" : "opacity-0"
               }`}
             >
-              <button
-                className={`w-full cursor-pointer overflow-hidden whitespace-nowrap text-center font-bold text-sm ${
-                  expanded ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                Get Unlimited Credits
-              </button>
-            </div>
+              Get Unlimited Credits
+            </button>
           </Link>
         </div>
       </nav>
@@ -186,17 +186,18 @@ export function SidebarItem({
         >
           {items.map((item, idx) => (
             <li key={idx} className="pl-8">
-              <Link href={item.href}>
-                <div className="flex items-center py-2 px-3 my-1 font-medium rounded-md cursor-pointer transition-colors hover:bg-gray-50">
-                  {item.icon && (
-                    <span className="flex items-center justify-center">
-                      {item.icon}
-                    </span>
-                  )}
-                  <span className="overflow-hidden whitespace-nowrap ml-3">
-                    {item.label}
+              <Link
+                href={item.href}
+                className="flex items-center py-2 px-3 my-1 font-medium rounded-md cursor-pointer transition-colors hover:bg-gray-50"
+              >
+                {item.icon && (
+                  <span className="flex items-center justify-center">
+                    {item.icon}
                   </span>
-                </div>
+                )}
+                <span className="overflow-hidden whitespace-nowrap ml-3">
+                  {item.label}
+                </span>
               </Link>
             </li>
           ))}

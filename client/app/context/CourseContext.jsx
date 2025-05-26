@@ -17,18 +17,32 @@ const CourseContext = createContext();
 // Create a provider component
 export function CourseProvider({ children }) {
   const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
 
   // Fetch all courses for the current user
   const fetchCourses = useCallback(async () => {
-    if (!isSignedIn) {
-      console.log("User not signed in, clearing courses");
-      setCourses([]);
+    if (!isLoaded) {
+      console.log(
+        "[CourseContext] Auth not loaded yet, waiting to fetch courses."
+      );
+      setLoading(true);
       return;
     }
 
+    if (!isSignedIn) {
+      console.log(
+        "[CourseContext] User not signed in (auth loaded), clearing courses."
+      );
+      setCourses([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log(
+      "[CourseContext] Auth loaded and user signed in, fetching courses."
+    );
     try {
       setLoading(true);
       setError(null);
@@ -75,11 +89,15 @@ export function CourseProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [getToken, isSignedIn]);
+  }, [getToken, isSignedIn, isLoaded]);
 
   // Add a new course
   const addCourse = useCallback(
     async (courseData) => {
+      if (!isLoaded) {
+        setError("Authentication state not loaded yet.");
+        return;
+      }
       if (!isSignedIn) {
         setError("Must be signed in to add courses");
         return;
@@ -118,12 +136,16 @@ export function CourseProvider({ children }) {
         setLoading(false);
       }
     },
-    [getToken, isSignedIn]
+    [getToken, isSignedIn, isLoaded]
   );
 
   // Delete a course
   const deleteCourse = useCallback(
     async (courseId) => {
+      if (!isLoaded) {
+        setError("Authentication state not loaded yet.");
+        return;
+      }
       if (!isSignedIn) {
         setError("Must be signed in to delete courses");
         return;
@@ -159,13 +181,13 @@ export function CourseProvider({ children }) {
         setLoading(false);
       }
     },
-    [getToken, isSignedIn]
+    [getToken, isSignedIn, isLoaded]
   );
 
   // Initialize courses on mount
   useEffect(() => {
     fetchCourses();
-  }, [fetchCourses]);
+  }, [fetchCourses, isLoaded, isSignedIn]);
 
   const value = {
     courses,

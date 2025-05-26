@@ -67,20 +67,15 @@ export default function UserCourseList() {
           <Link
             key={c._id}
             href={`/dashboard/course/${c.courseInstanceId}`}
-            legacyBehavior
-            passHref
+            className="flex items-center justify-center cursor-pointer"
+            title={`${c.name} (${c.code})`}
           >
-            <a
-              className="flex items-center justify-center cursor-pointer"
-              title={`${c.name} (${c.code})`}
-            >
-              <Folder
-                className={`w-3 h-3 ${getCourseColor(index).replace(
-                  "bg-",
-                  "text-"
-                )} flex-shrink-0`}
-              />
-            </a>
+            <Folder
+              className={`w-3 h-3 ${getCourseColor(index).replace(
+                "bg-",
+                "text-"
+              )} flex-shrink-0`}
+            />
           </Link>
         ))}
       </div>
@@ -93,27 +88,18 @@ export default function UserCourseList() {
         {courses.map((c) => (
           <li
             key={c._id}
-            className={`flex justify-between items-center p-2 bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full ${
-              expanded ? "" : "justify-center"
-            }`}
+            className={`flex justify-between items-center bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full`}
           >
             <Link
               href={`/dashboard/course/${c.courseInstanceId}`}
-              legacyBehavior
-              passHref
+              className={`flex-grow p-2 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap cursor-pointer opacity-100`}
             >
-              <a
-                className={`overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap cursor-pointer hover:underline ${
-                  expanded ? "opacity-100" : "w-0 opacity-0"
-                }`}
-              >
-                {c.name}
-              </a>
+              {c.name}
             </Link>
             <button
               onClick={() => handleDelete(c._id)}
               disabled={isDeleting}
-              className="text-red-500 hover:text-red-600 p-1 rounded-full hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
+              className="text-red-500 hover:text-red-600 p-1 mr-2 rounded-full hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
               aria-label="Delete course"
             >
               {isDeleting ? (

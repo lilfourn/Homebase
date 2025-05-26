@@ -1,16 +1,50 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL
+export const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function fetchCourses() {
-  const res = await fetch(`${API_URL}/api/courses`)
-  if (!res.ok) throw new Error(`Fetch error: ${res.status}`)
-  return res.json()
+  const res = await fetch(`${API_URL}/api/courses`);
+  if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
+  return res.json();
 }
 
 export async function deleteCourse(id) {
   const res = await fetch(`${API_URL}/api/courses/${id}`, {
-    method: 'DELETE',
-    credentials: 'include'
-  })
-  if (!res.ok) throw new Error(`Delete error: ${res.status}`)
-  return res.json()
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`Delete error: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCourseByInstanceId(courseInstanceId, token) {
+  if (!token) {
+    throw new Error("Authentication token not provided.");
+  }
+  if (!courseInstanceId) {
+    throw new Error("Course instance ID not provided.");
+  }
+
+  const res = await fetch(
+    `${API_URL}/api/courses/instance/${courseInstanceId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    // It's helpful to try and parse the error message from the backend if available
+    let errorMessage = `Error fetching course: ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData && errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch (e) {
+      // Could not parse JSON, use status text or default message
+      errorMessage = res.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
 }

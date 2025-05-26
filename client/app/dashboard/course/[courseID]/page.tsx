@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchCourseByInstanceId } from "@/app/api/courses.api";
 import { useAuth } from "@clerk/nextjs";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -19,7 +20,7 @@ interface CourseData {
 
 export default function CoursePage() {
   const params = useParams();
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn, isLoaded, userId: authUserId } = useAuth();
   const courseInstanceId = params.courseID as string; // courseID from URL maps to courseInstanceId
 
   const [course, setCourse] = useState<CourseData | null>(null);
@@ -27,9 +28,32 @@ export default function CoursePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!courseInstanceId) {
+    console.log(
+      "[CoursePage] Auth state: isLoaded:",
+      isLoaded,
+      "isSignedIn:",
+      isSignedIn,
+      "authUserId:",
+      authUserId
+    );
+    console.log("[CoursePage] Received courseID from params:", params.courseID);
+
+    if (!isLoaded) {
+      console.log("[CoursePage] Auth not loaded yet, waiting...");
+      setLoading(true); // Keep loading true
+      return; // Wait for auth to load
+    }
+
+    if (!isSignedIn) {
+      console.log("[CoursePage] User not signed in according to useAuth.");
       setLoading(false);
-      setError("Course ID not found in URL.");
+      setError("User not authenticated. Please sign in.");
+      return;
+    }
+
+    if (!courseInstanceId || courseInstanceId === "undefined") {
+      setLoading(false);
+      setError("Course ID not found in URL or is invalid.");
       return;
     }
 
@@ -38,35 +62,8 @@ export default function CoursePage() {
       setError(null);
       try {
         const token = await getToken();
-        if (!token) {
-          setError("Authentication token not available.");
-          setLoading(false);
-          return;
-        }
-
-        const response = await fetch(
-          `/api/courses/instance/${courseInstanceId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError(
-              "Course not found or you do not have permission to view it."
-            );
-          } else {
-            const errorData = await response.json();
-            setError(errorData.message || `Error: ${response.status}`);
-          }
-          setCourse(null);
-        } else {
-          const data = await response.json();
-          setCourse(data);
-        }
+        const data = await fetchCourseByInstanceId(courseInstanceId, token);
+        setCourse(data);
       } catch (err) {
         console.error("Failed to fetch course:", err);
         setError(
@@ -78,10 +75,24 @@ export default function CoursePage() {
       }
     };
 
-    fetchCourse();
-  }, [courseInstanceId, getToken]);
+    if (
+      isSignedIn &&
+      isLoaded &&
+      courseInstanceId &&
+      courseInstanceId !== "undefined"
+    ) {
+      fetchCourse();
+    }
+  }, [
+    courseInstanceId,
+    getToken,
+    isSignedIn,
+    isLoaded,
+    authUserId,
+    params.courseID,
+  ]);
 
-  if (loading) {
+  if (!isLoaded || loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-lg text-gray-600">Loading course details...</p>
