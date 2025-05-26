@@ -3,6 +3,7 @@
 import { SidebarContext } from "@/app/components/ui/sidebar";
 import { useCourses } from "@/app/context/CourseContext";
 import { Folder, Loader2, X } from "lucide-react";
+import Link from "next/link";
 import { useContext, useState } from "react";
 
 const COURSE_COLORS = [
@@ -63,18 +64,24 @@ export default function UserCourseList() {
     return (
       <div className="flex flex-wrap gap-1.5 justify-center max-w-12">
         {courses.map((c, index) => (
-          <div
+          <Link
             key={c._id}
-            className="flex items-center justify-center"
-            title={`${c.name} (${c.code})`}
+            href={`/dashboard/course/${c.courseInstanceId}`}
+            legacyBehavior
+            passHref
           >
-            <Folder
-              className={`w-3 h-3 ${getCourseColor(index).replace(
-                "bg-",
-                "text-"
-              )} flex-shrink-0`}
-            />
-          </div>
+            <a
+              className="flex items-center justify-center cursor-pointer"
+              title={`${c.name} (${c.code})`}
+            >
+              <Folder
+                className={`w-3 h-3 ${getCourseColor(index).replace(
+                  "bg-",
+                  "text-"
+                )} flex-shrink-0`}
+              />
+            </a>
+          </Link>
         ))}
       </div>
     );
@@ -86,17 +93,23 @@ export default function UserCourseList() {
         {courses.map((c) => (
           <li
             key={c._id}
-            className={`flex cursor-pointer justify-between items-center p-2 bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full ${
+            className={`flex justify-between items-center p-2 bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full ${
               expanded ? "" : "justify-center"
             }`}
           >
-            <span
-              className={`overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap ${
-                expanded ? "opacity-100" : "w-0 opacity-0"
-              }`}
+            <Link
+              href={`/dashboard/course/${c.courseInstanceId}`}
+              legacyBehavior
+              passHref
             >
-              {c.name}
-            </span>
+              <a
+                className={`overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap cursor-pointer hover:underline ${
+                  expanded ? "opacity-100" : "w-0 opacity-0"
+                }`}
+              >
+                {c.name}
+              </a>
+            </Link>
             <button
               onClick={() => handleDelete(c._id)}
               disabled={isDeleting}

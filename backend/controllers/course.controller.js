@@ -64,15 +64,60 @@ const getCoursesByUser = async (req, res) => {
 const deleteUserCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const course = await Course.findByIdAndDelete(id);
+    const { userId } = getAuth(req);
+
+    if (!userId) return res.status(401).json({ message: "Not signed in" });
+
+    // Find the course by its primary _id
+    const course = await Course.findById(id);
 
     if (!course) {
-      return res.status(404).json({ message: "course not found" });
+      return res.status(404).json({ message: "Course not found" });
     }
 
-    res.status(200).json({ message: "Product deleted successfully" });
+    // Check if the authenticated user is the owner of the course
+    if (course.userId !== userId) {
+      return res
+        .status(403)
+        .json({ message: "User not authorized to delete this course" });
+    }
+
+    // If checks pass, delete the course
+    await Course.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "Course deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+const getCourseByInstanceId = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({ message: "Not signed in" });
+    }
+
+    if (!courseInstanceId) {
+      return res
+        .status(400)
+        .json({ message: "Course instance ID is required" });
+    }
+
+    const course = await Course.findOne({ courseInstanceId, userId });
+
+    if (!course) {
+      return res
+        .status(404)
+        .json({ message: "Course not found or user not authorized" });
+    }
+
+    res.status(200).json(course);
+  } catch (error) {
+    console.error("Error fetching course by instance ID:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -81,4 +126,5 @@ module.exports = {
   viewCourses,
   getCoursesByUser,
   deleteUserCourse,
+  getCourseByInstanceId,
 };

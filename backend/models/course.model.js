@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { v4: uuidv4 } = require("uuid");
 
 const CourseSchema = mongoose.Schema(
   {
@@ -19,6 +20,13 @@ const CourseSchema = mongoose.Schema(
       required: [true, "Please enter course code"],
       trim: true,
       uppercase: true,
+    },
+
+    courseInstanceId: {
+      type: String,
+      required: [true, "Course instance ID required"],
+      unique: true,
+      default: uuidv4,
     },
 
     description: {
