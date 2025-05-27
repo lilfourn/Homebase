@@ -6,6 +6,7 @@ const Course = require("./models/course.model");
 const User = require("./models/users.model");
 const courseRoute = require("./routes/course.route");
 const userRoute = require("./routes/syncUsers.route");
+const googleDriveRoute = require("./routes/googleDrive.route");
 const { clerkClient } = require("@clerk/express");
 const { verifyWebhook } = require("@clerk/express/webhooks");
 const app = express();
@@ -26,6 +27,7 @@ app.use(
 // routes
 app.use("/api/courses", courseRoute);
 app.use("/api/users", userRoute);
+app.use("/api/google-drive", googleDriveRoute);
 
 app.get("/", async (req, res) => {
   res.send("Good Job");
@@ -157,7 +159,7 @@ app.post("/sync/users", async (req, res) => {
     res.json({ syncedCount: result.upsertedCount + result.modifiedCount });
     console.log("Synced Users to DB Successfully!");
   } catch (error) {
-    console.error("Sync error:", error);
+    console.error("Sync error:", error);
     res.status(500).json({ message: error.message });
   }
 });

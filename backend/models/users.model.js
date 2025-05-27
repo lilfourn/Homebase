@@ -75,6 +75,79 @@ const UserSchema = mongoose.Schema(
       required: false,
       default: [],
     },
+
+    // Google Drive Integration
+    googleDrive: {
+      connected: {
+        type: Boolean,
+        default: false,
+      },
+      email: {
+        type: String,
+        default: "",
+      },
+      accessToken: {
+        type: String,
+        default: "",
+        select: false, // Don't include in queries by default for security
+      },
+      refreshToken: {
+        type: String,
+        default: "",
+        select: false, // Don't include in queries by default for security
+      },
+      tokenExpiry: {
+        type: Date,
+        default: null,
+      },
+      connectedAt: {
+        type: Date,
+        default: null,
+      },
+      lastSynced: {
+        type: Date,
+        default: null,
+      },
+    },
+
+    // Store uploaded files from Google Drive
+    googleDriveFiles: [
+      {
+        fileId: {
+          type: String,
+          required: true,
+        },
+        fileName: {
+          type: String,
+          required: true,
+        },
+        mimeType: {
+          type: String,
+          required: true,
+        },
+        size: {
+          type: Number,
+          default: 0,
+        },
+        webViewLink: {
+          type: String,
+          default: "",
+        },
+        iconLink: {
+          type: String,
+          default: "",
+        },
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        courseId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Course",
+          default: null,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
