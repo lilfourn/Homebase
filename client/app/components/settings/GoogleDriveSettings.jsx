@@ -464,20 +464,10 @@ export default function GoogleDriveSettings() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <Cloud className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <div className="text-center py-6">
                 <p className="text-sm text-gray-600 mb-4">
                   No files imported yet
                 </p>
-                <Button
-                  onClick={showPicker}
-                  disabled={isImporting}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Import Files from Drive
-                </Button>
               </div>
             )}
           </div>
