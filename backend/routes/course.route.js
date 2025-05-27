@@ -16,7 +16,7 @@ router.post("/", requireAuth(), addCourse);
 // view all course in db
 router.get("/", viewCourses);
 
-// list only the signed‑in user's courses
+// list only the signed-in user's courses
 router.get("/mine", requireAuth(), getCoursesByUser);
 
 // delete a users course

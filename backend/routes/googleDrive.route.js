@@ -6,8 +6,10 @@ const {
   disconnect,
   listFiles,
   importFile,
+  importFiles,
   removeFile,
   getImportedFiles,
+  getPickerConfig,
 } = require("../controllers/googleDrive.controller");
 
 const router = express.Router();
@@ -21,11 +23,17 @@ router.get("/callback", handleCallback);
 // Disconnect Google Drive
 router.post("/disconnect", requireAuth(), disconnect);
 
-// List files from Google Drive
+// Get picker configuration
+router.get("/picker-config", requireAuth(), getPickerConfig);
+
+// List files from Google Drive (kept for backwards compatibility)
 router.get("/files", requireAuth(), listFiles);
 
-// Import file from Google Drive
+// Import single file from Google Drive
 router.post("/import", requireAuth(), importFile);
+
+// Import multiple files from Google Drive
+router.post("/import-multiple", requireAuth(), importFiles);
 
 // Remove imported file
 router.delete("/files/:fileId", requireAuth(), removeFile);

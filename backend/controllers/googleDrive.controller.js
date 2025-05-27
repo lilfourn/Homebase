@@ -286,12 +286,118 @@ const getImportedFiles = async (req, res) => {
   }
 };
 
+/**
+ * Get Google Picker configuration
+ */
+const getPickerConfig = async (req, res) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) return res.status(401).json({ message: "Not signed in" });
+
+    const user = await User.findOne({ userId }).select(
+      "+googleDrive.accessToken +googleDrive.refreshToken"
+    );
+    if (!user || !user.googleDrive.connected) {
+      return res.status(400).json({ message: "Google Drive not connected" });
+    }
+
+    const tokens = {
+      access_token: user.googleDrive.accessToken,
+      refresh_token: user.googleDrive.refreshToken,
+      expiry_date: user.googleDrive.tokenExpiry,
+    };
+
+    const pickerConfig = await googleDriveService.getPickerConfig(tokens);
+
+    // Update access token if it was refreshed
+    if (pickerConfig.accessToken !== user.googleDrive.accessToken) {
+      await User.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            "googleDrive.accessToken": pickerConfig.accessToken,
+            "googleDrive.tokenExpiry": new Date(Date.now() + 3600 * 1000), // 1 hour from now
+          },
+        }
+      );
+    }
+
+    res.status(200).json(pickerConfig);
+  } catch (error) {
+    console.error("Error getting picker config:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Import multiple files from Google Drive to database
+ */
+const importFiles = async (req, res) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) return res.status(401).json({ message: "Not signed in" });
+
+    const { files, courseId } = req.body;
+
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ message: "No files provided" });
+    }
+
+    const user = await User.findOne({ userId }).select(
+      "+googleDrive.accessToken +googleDrive.refreshToken"
+    );
+    if (!user || !user.googleDrive.connected) {
+      return res.status(400).json({ message: "Google Drive not connected" });
+    }
+
+    // Filter out already imported files
+    const existingFileIds = user.googleDriveFiles.map((f) => f.fileId);
+    const newFiles = files.filter((file) => !existingFileIds.includes(file.id));
+
+    if (newFiles.length === 0) {
+      return res.status(400).json({ message: "All files already imported" });
+    }
+
+    // Add files to user's imported files
+    const fileEntries = newFiles.map((file) => ({
+      fileId: file.id,
+      fileName: file.name,
+      mimeType: file.mimeType || "application/octet-stream",
+      size: parseInt(file.sizeBytes) || 0,
+      webViewLink: file.url || "",
+      iconLink: file.iconUrl || "",
+      uploadedAt: new Date(),
+      courseId: courseId || null,
+    }));
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      {
+        $push: { googleDriveFiles: { $each: fileEntries } },
+        $set: { "googleDrive.lastSynced": new Date() },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: `${fileEntries.length} file(s) imported successfully`,
+      files: fileEntries,
+      skipped: files.length - newFiles.length,
+    });
+  } catch (error) {
+    console.error("Error importing files:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAuthUrl,
   handleCallback,
   disconnect,
   listFiles,
   importFile,
+  importFiles,
   removeFile,
   getImportedFiles,
+  getPickerConfig,
 };

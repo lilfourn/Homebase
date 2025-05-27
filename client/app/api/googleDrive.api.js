@@ -111,3 +111,42 @@ export async function getImportedFiles(token, courseId = null) {
   if (!res.ok) throw new Error(`Get imported files error: ${res.status}`);
   return res.json();
 }
+
+/**
+ * Get Google Picker configuration
+ */
+export async function getGooglePickerConfig(token) {
+  const res = await fetch(`${API_URL}/api/google-drive/picker-config`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+
+  if (!res.ok) throw new Error(`Get picker config error: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Import multiple files from Google Drive to database
+ */
+export async function importGoogleDriveFiles(token, files, courseId = null) {
+  const res = await fetch(`${API_URL}/api/google-drive/import-multiple`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      files,
+      courseId,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(error.message || `Import files error: ${res.status}`);
+  }
+  return res.json();
+}

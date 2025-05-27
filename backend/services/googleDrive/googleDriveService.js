@@ -23,10 +23,75 @@ class GoogleDriveService {
 
     return this.oauth2Client.generateAuthUrl({
       access_type: "offline",
-      scope: scopes,
+      scope: scopes.join(" "), // Join scopes with space
       state: userId, // Pass userId in state to link tokens to user
       prompt: "consent", // Force consent to ensure refresh token
     });
+  }
+
+  /**
+   * Get picker configuration including OAuth token
+   */
+  async getPickerConfig(tokens) {
+    try {
+      // Debug: Log environment variables
+      console.log(
+        "GOOGLE_API_KEY:",
+        process.env.GOOGLE_API_KEY ? "SET" : "NOT SET"
+      );
+      console.log(
+        "GOOGLE_CLIENT_ID:",
+        process.env.GOOGLE_CLIENT_ID ? "SET" : "NOT SET"
+      );
+      console.log(
+        "GOOGLE_APP_ID:",
+        process.env.GOOGLE_APP_ID ? "SET (optional)" : "NOT SET (optional)"
+      );
+
+      // Validate required environment variables
+      if (!process.env.GOOGLE_API_KEY) {
+        throw new Error("GOOGLE_API_KEY is not set in environment variables");
+      }
+
+      if (!process.env.GOOGLE_CLIENT_ID) {
+        throw new Error("GOOGLE_CLIENT_ID is not set in environment variables");
+      }
+
+      // Ensure we have a valid access token
+      let accessToken = tokens.access_token;
+
+      // Check if token needs refresh
+      if (tokens.expiry_date && new Date() >= new Date(tokens.expiry_date)) {
+        const refreshedTokens = await this.refreshAccessToken(
+          tokens.refresh_token
+        );
+        accessToken = refreshedTokens.access_token;
+      }
+
+      const config = {
+        accessToken,
+        developerKey: process.env.GOOGLE_API_KEY,
+        clientId: process.env.GOOGLE_CLIENT_ID,
+      };
+
+      // Only add appId if it's set (it's optional)
+      if (process.env.GOOGLE_APP_ID) {
+        config.appId = process.env.GOOGLE_APP_ID;
+      }
+
+      console.log("Picker config being returned:", {
+        ...config,
+        accessToken: "***HIDDEN***",
+        developerKey: config.developerKey
+          ? `${config.developerKey.substring(0, 10)}...`
+          : "NOT SET",
+      });
+
+      return config;
+    } catch (error) {
+      console.error("Error getting picker config:", error);
+      throw new Error("Failed to get picker configuration");
+    }
   }
 
   /**

@@ -13,15 +13,17 @@ export default function Header() {
         </Link>
       </div>
       <div className="mr-4">
-        <Link href="/sign-in">
-          <button className="cursor-pointer border-none background-transparent p-6 font-bold min-h-9 mr-4 hover:scale-105 transition-all ease-in-out duration-300">
-            Sign In
-          </button>
+        <Link
+          href="/sign-in"
+          className="cursor-pointer border-none background-transparent p-6 font-bold min-h-9 mr-4 hover:scale-105 transition-all ease-in-out duration-300 inline-block"
+        >
+          Sign In
         </Link>
-        <Link href="/sign-up">
-          <button className="cursor-pointer bg-blue-600 text-white rounded-xl p-2.5 font-bold min-h-9 mr-4 hover:scale-105 transition-all ease-in-out duration-300">
-            Create Account
-          </button>
+        <Link
+          href="/sign-up"
+          className="cursor-pointer bg-blue-600 text-white rounded-xl p-2.5 font-bold min-h-9 mr-4 hover:scale-105 transition-all ease-in-out duration-300 inline-block"
+        >
+          Create Account
         </Link>
       </div>
     </div>

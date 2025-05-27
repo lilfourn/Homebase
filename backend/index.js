@@ -7,8 +7,8 @@ const User = require("./models/users.model");
 const courseRoute = require("./routes/course.route");
 const userRoute = require("./routes/syncUsers.route");
 const googleDriveRoute = require("./routes/googleDrive.route");
-const { clerkClient } = require("@clerk/express");
-const { verifyWebhook } = require("@clerk/express/webhooks");
+const { clerkClient, clerkMiddleware } = require("@clerk/express");
+const { verifyWebhook } = require("@clerk/express");
 const app = express();
 
 // Middleware config
@@ -23,6 +23,9 @@ app.use(
     credentials: true, // <-- this tells Express to send Access-Control-Allow-Credentials: true
   })
 );
+
+// Add Clerk middleware here
+app.use(clerkMiddleware());
 
 // routes
 app.use("/api/courses", courseRoute);
