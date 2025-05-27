@@ -1,4 +1,5 @@
 // Course page components
+export { SyllabusProcessing } from "./SyllabusProcessing";
 export { LibraryTab } from "./tabs/LibraryTab";
 export { OverviewTab } from "./tabs/OverviewTab";
 export { TabNavigation } from "./tabs/TabNavigation";

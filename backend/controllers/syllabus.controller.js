@@ -1,6 +1,7 @@
 const Course = require("../models/course.model");
 const Syllabus = require("../models/syllabus.model");
 const { getAuth } = require("@clerk/express");
+const syllabusProcessingService = require("../services/syllabusProcessingService");
 
 // Get syllabus status for a course
 exports.getSyllabusStatus = async (req, res) => {
@@ -159,6 +160,161 @@ exports.getSyllabus = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Error fetching syllabus",
+      error: error.message,
+    });
+  }
+};
+
+// Process syllabus with AI
+exports.processSyllabus = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Find the syllabus
+    const syllabus = await Syllabus.findOne({
+      courseInstanceId,
+      userId: auth.userId,
+    });
+
+    if (!syllabus) {
+      return res.status(404).json({ message: "Syllabus not found" });
+    }
+
+    // Check if already processed
+    if (syllabus.isProcessed) {
+      return res.status(200).json({
+        message: "Syllabus already processed",
+        isProcessed: true,
+        parsedData: syllabus.parsedData,
+      });
+    }
+
+    // Start processing asynchronously
+    syllabusProcessingService
+      .processSyllabus(syllabus._id)
+      .then(() => {
+        console.log(
+          `Syllabus processing completed for course: ${courseInstanceId}`
+        );
+      })
+      .catch((error) => {
+        console.error(
+          `Syllabus processing failed for course: ${courseInstanceId}`,
+          error
+        );
+      });
+
+    res.status(202).json({
+      message: "Syllabus processing started",
+      isProcessed: false,
+      status: "processing",
+    });
+  } catch (error) {
+    console.error("Error starting syllabus processing:", error);
+    res.status(500).json({
+      message: "Error starting syllabus processing",
+      error: error.message,
+    });
+  }
+};
+
+// Get syllabus processing status
+exports.getProcessingStatus = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const status = await syllabusProcessingService.getProcessingStatus(
+      courseInstanceId,
+      auth.userId
+    );
+
+    res.status(200).json(status);
+  } catch (error) {
+    console.error("Error getting processing status:", error);
+    res.status(500).json({
+      message: "Error getting processing status",
+      error: error.message,
+    });
+  }
+};
+
+// Get parsed syllabus data
+exports.getParsedData = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const data = await syllabusProcessingService.getParsedData(
+      courseInstanceId,
+      auth.userId
+    );
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Error getting parsed data:", error);
+
+    if (error.message === "Syllabus not found") {
+      return res.status(404).json({ message: error.message });
+    }
+
+    if (error.message === "Syllabus has not been processed yet") {
+      return res.status(400).json({ message: error.message });
+    }
+
+    res.status(500).json({
+      message: "Error getting parsed data",
+      error: error.message,
+    });
+  }
+};
+
+// Reprocess syllabus
+exports.reprocessSyllabus = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Start reprocessing asynchronously
+    syllabusProcessingService
+      .reprocessSyllabus(courseInstanceId, auth.userId)
+      .then(() => {
+        console.log(
+          `Syllabus reprocessing completed for course: ${courseInstanceId}`
+        );
+      })
+      .catch((error) => {
+        console.error(
+          `Syllabus reprocessing failed for course: ${courseInstanceId}`,
+          error
+        );
+      });
+
+    res.status(202).json({
+      message: "Syllabus reprocessing started",
+      status: "processing",
+    });
+  } catch (error) {
+    console.error("Error starting syllabus reprocessing:", error);
+    res.status(500).json({
+      message: "Error starting syllabus reprocessing",
       error: error.message,
     });
   }

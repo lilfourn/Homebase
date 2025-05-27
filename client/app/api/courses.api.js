@@ -115,3 +115,88 @@ export const getSyllabus = async (courseInstanceId, authToken) => {
     throw error.response?.data || error;
   }
 };
+
+export const processSyllabus = async (courseInstanceId, authToken) => {
+  try {
+    const response = await axiosInstance.post(
+      `/api/syllabus/${courseInstanceId}/process`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error processing syllabus:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};
+
+export const getSyllabusProcessingStatus = async (
+  courseInstanceId,
+  authToken
+) => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/syllabus/${courseInstanceId}/processing-status`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error getting syllabus processing status:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};
+
+export const getSyllabusParsedData = async (courseInstanceId, authToken) => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/syllabus/${courseInstanceId}/parsed-data`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error getting syllabus parsed data:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};
+
+export const reprocessSyllabus = async (courseInstanceId, authToken) => {
+  try {
+    const response = await axiosInstance.post(
+      `/api/syllabus/${courseInstanceId}/reprocess`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error reprocessing syllabus:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};

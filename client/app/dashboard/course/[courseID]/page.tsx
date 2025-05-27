@@ -11,6 +11,7 @@ import { TabType } from "@/app/types/course.types";
 import { useCourseData } from "@/app/hooks/useCourseData";
 import { useGooglePicker } from "@/app/hooks/useGooglePicker";
 import { useSyllabusManagement } from "@/app/hooks/useSyllabusManagement";
+import { useSyllabusProcessing } from "@/app/hooks/useSyllabusProcessing";
 import { useToast } from "@/app/hooks/useToast";
 
 // Components
@@ -21,6 +22,7 @@ import {
   LoadingState,
   NoCourseState,
   OverviewTab,
+  SyllabusProcessing,
   SyllabusUploadModal,
   TabNavigation,
   ToastNotification,
@@ -54,11 +56,32 @@ export default function CoursePage() {
     showToast,
   });
 
+  // Syllabus AI Processing Hook
+  const {
+    processingStatus,
+    parsedData,
+    isProcessing: isProcessingAi,
+    processingError,
+    isLoadingStatus: isLoadingAiStatus,
+    startProcessing: startSyllabusProcessing,
+    reprocess: reprocessSyllabusAi,
+    refreshStatus: refreshAiStatus,
+    loadParsedData: loadAiParsedData,
+  } = useSyllabusProcessing({
+    courseInstanceId,
+    isSignedIn,
+    isLoaded,
+    showToast,
+  });
+
   const { isUploadingSyllabus, handleUploadSyllabus } = useGooglePicker({
     userData,
     courseInstanceId,
     showToast,
-    onFileSelected: handleSyllabusFileSelected,
+    onFileSelected: async (docs) => {
+      await handleSyllabusFileSelected(docs);
+      refreshAiStatus();
+    },
   });
 
   // Event handlers
@@ -70,8 +93,14 @@ export default function CoursePage() {
     setShowSyllabusModal(true);
   };
 
-  // Loading states
-  if (!isLoaded || loading || isLoadingUserData || syllabusStatusLoading) {
+  // Combined loading states
+  if (
+    !isLoaded ||
+    loading ||
+    isLoadingUserData ||
+    syllabusStatusLoading ||
+    isLoadingAiStatus
+  ) {
     return <LoadingState />;
   }
 
@@ -88,12 +117,24 @@ export default function CoursePage() {
     switch (activeTab) {
       case "overview":
         return (
-          <OverviewTab
-            course={course}
-            hasSyllabus={hasSyllabus}
-            showSyllabusModal={showSyllabusModal}
-            onShowSyllabusModal={handleShowSyllabusModal}
-          />
+          <div className="space-y-6">
+            <OverviewTab
+              course={course}
+              hasSyllabus={hasSyllabus}
+              showSyllabusModal={showSyllabusModal}
+              onShowSyllabusModal={handleShowSyllabusModal}
+            />
+            {hasSyllabus && (
+              <>
+                <SyllabusProcessing
+                  courseInstanceId={courseInstanceId}
+                  isSignedIn={isSignedIn}
+                  isLoaded={isLoaded}
+                  showToast={showToast}
+                />
+              </>
+            )}
+          </div>
         );
       case "library":
         return (
@@ -104,6 +145,10 @@ export default function CoursePage() {
             showSyllabusModal={showSyllabusModal}
             userData={userData}
             onShowSyllabusModal={handleShowSyllabusModal}
+            processingStatus={processingStatus}
+            isProcessingAi={isProcessingAi}
+            startSyllabusProcessing={startSyllabusProcessing}
+            reprocessSyllabusAi={reprocessSyllabusAi}
           />
         );
       default:
