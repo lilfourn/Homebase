@@ -1,4 +1,10 @@
+import axios from "axios";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+});
 
 export async function fetchCourses() {
   const res = await fetch(`${API_URL}/api/courses`);
@@ -48,3 +54,64 @@ export async function fetchCourseByInstanceId(courseInstanceId, token) {
   }
   return res.json();
 }
+
+export const updateCourse = async (courseInstanceId, data, authToken) => {
+  try {
+    const response = await axiosInstance.put(
+      `/courses/${courseInstanceId}`,
+      data,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error updating course:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};
+
+export const getSyllabusStatus = async (courseInstanceId, authToken) => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/syllabus/${courseInstanceId}/status`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error fetching syllabus status:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};
+
+export const getSyllabus = async (courseInstanceId, authToken) => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/syllabus/${courseInstanceId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error fetching syllabus:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};

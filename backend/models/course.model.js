@@ -29,6 +29,11 @@ const CourseSchema = mongoose.Schema(
       default: uuidv4,
     },
 
+    hasSyllabus: {
+      type: Boolean,
+      default: false,
+    },
+
     description: {
       type: String,
       required: false,

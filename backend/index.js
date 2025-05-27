@@ -4,11 +4,13 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const Course = require("./models/course.model");
 const User = require("./models/users.model");
+const Syllabus = require("./models/syllabus.model");
 const courseRoute = require("./routes/course.route");
 const userRoute = require("./routes/syncUsers.route");
 const googleDriveRoute = require("./routes/googleDrive.route");
 const { clerkClient, clerkMiddleware } = require("@clerk/express");
 const { verifyWebhook } = require("@clerk/express");
+const syllabusRoutes = require("./routes/syllabus.routes");
 const app = express();
 
 // Middleware config
@@ -31,6 +33,7 @@ app.use(clerkMiddleware());
 app.use("/api/courses", courseRoute);
 app.use("/api/users", userRoute);
 app.use("/api/google-drive", googleDriveRoute);
+app.use("/api/syllabus", syllabusRoutes);
 
 app.get("/", async (req, res) => {
   res.send("Good Job");
@@ -186,6 +189,12 @@ mongoose
       await mongoose.connection.db
         .collection("users")
         .createIndex({ userId: 1 }, { unique: true, background: true });
+      await mongoose.connection.db
+        .collection("syllabi")
+        .createIndex(
+          { userId: 1, courseInstanceId: 1 },
+          { unique: true, background: true }
+        );
       console.log("Database indexes created successfully");
     } catch (indexError) {
       console.log(

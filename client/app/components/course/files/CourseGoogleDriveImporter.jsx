@@ -18,8 +18,8 @@ import {
   getImportedFiles,
   importGoogleDriveFiles,
   removeGoogleDriveFile,
-} from "../../api/googleDrive.api";
-import { Button } from "../ui/button";
+} from "../../../api/googleDrive.api";
+import { Button } from "../../ui/button";
 
 // Helper functions moved outside FileListItem for broader use
 const getFileIcon = (mimeType) => {

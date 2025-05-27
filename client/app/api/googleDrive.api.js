@@ -190,3 +190,27 @@ export async function associateGoogleDriveFilesToCourse(
   }
   return res.json();
 }
+
+/**
+ * Upload syllabus file for a specific course
+ */
+export async function uploadSyllabusFile(token, files, courseId) {
+  const res = await fetch(`${API_URL}/api/syllabus/upload`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      files,
+      courseId,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(error.message || `Upload syllabus error: ${res.status}`);
+  }
+  return res.json();
+}
