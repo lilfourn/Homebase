@@ -237,6 +237,9 @@ const updateUserSchoolAndColors = async (req, res) => {
             primary: colors.primaryColor,
             secondary: colors.secondaryColor,
           },
+          // Reset custom colors to use new school colors as defaults
+          customPrimaryColor: colors.primaryColor,
+          customSecondaryColor: colors.secondaryColor,
         }),
     };
 

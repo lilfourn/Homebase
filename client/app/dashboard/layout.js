@@ -51,8 +51,12 @@ function ThemeApplicator() {
 
   useEffect(() => {
     if (clerkUser && clerkUser.id) {
+      console.log(
+        `[ThemeApplicator] Fetching theme data for user ${clerkUser.id}, updateCount: ${updateCount}`
+      );
       fetchUserByClerkId(clerkUser.id)
         .then((userData) => {
+          console.log(`[ThemeApplicator] Received user data:`, userData);
           if (
             userData &&
             userData.customPrimaryColor &&
@@ -139,11 +143,17 @@ function ThemeApplicator() {
                 cursor: pointer !important;
               }
             `;
+            console.log(
+              `[ThemeApplicator] Setting theme styles with colors: Primary=${primaryColor}, Secondary=${secondaryColor}`
+            );
             setThemeStyles(styles);
           } else {
             console.log(
-              "userData is missing colors or userData itself is null/undefined."
+              "[ThemeApplicator] userData is missing colors or userData itself is null/undefined.",
+              userData
             );
+            // Clear styles if no valid colors
+            setThemeStyles("");
           }
         })
         .catch((error) => {

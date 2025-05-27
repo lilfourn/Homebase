@@ -16,8 +16,11 @@ import {
   updateUserCustomThemeColors,
 } from "../../api/users.api";
 import GoogleDriveSettings from "../../components/settings/GoogleDriveSettings";
+import UniversitySelection from "../../components/settings/UniversitySelection";
 import { Button } from "../../components/ui/button";
+import SaveToast from "../../components/ui/SaveToast";
 import { useSchoolUpdate } from "../../context/SchoolUpdateContext";
+import { SettingsProvider, useSettings } from "../../context/SettingsContext";
 
 // Helper component to display a color swatch
 const ColorSwatch = ({
@@ -65,10 +68,9 @@ const ColorSwatch = ({
   );
 };
 
-const ThemeConfiguration = () => {
+const ThemeConfiguration = ({ userData, onDataChange }) => {
   const { user: clerkUser, isLoaded } = useUser();
-  const { triggerSchoolUpdate } = useSchoolUpdate();
-  const [userData, setUserData] = useState(null);
+  const { updateChange } = useSettings();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -78,30 +80,37 @@ const ThemeConfiguration = () => {
   const [schoolLogoPreview, setSchoolLogoPreview] = useState("");
   const fileInputRef = useRef(null);
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState("");
-
   useEffect(() => {
-    if (isLoaded && clerkUser) {
-      const loadInitialData = async () => {
-        try {
-          setIsLoading(true);
-          setError("");
-          const data = await fetchUserByClerkId(clerkUser.id);
-          setUserData(data);
-          setCustomPrimary(data?.customPrimaryColor || "");
-          setCustomSecondary(data?.customSecondaryColor || "");
-          setSchoolLogoPreview(data?.schoolLogo || "");
-        } catch (err) {
-          console.error("Failed to fetch user data:", err);
-          setError(err.message || "Could not load theme data.");
-        }
-        setIsLoading(false);
-      };
-      loadInitialData();
+    if (isLoaded && clerkUser && userData) {
+      console.log(
+        "[ThemeConfiguration] Updating with new user data:",
+        userData
+      );
+      setCustomPrimary(userData?.customPrimaryColor || "");
+      setCustomSecondary(userData?.customSecondaryColor || "");
+      setSchoolLogoPreview(userData?.schoolLogo || "");
+      setSchoolLogo(null); // Clear any staged logo
+      setIsLoading(false);
     }
-  }, [clerkUser, isLoaded]);
+  }, [clerkUser, isLoaded, userData]);
+
+  // Separate effect to clear changes when userData changes
+  useEffect(() => {
+    if (userData) {
+      // Clear any pending changes in settings context when data updates
+      // This prevents stale change detection
+      const timer = setTimeout(() => {
+        updateChange("customPrimary", null, false);
+        updateChange("customSecondary", null, false);
+        updateChange("schoolLogo", null, false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    userData?.customPrimaryColor,
+    userData?.customSecondaryColor,
+    userData?.schoolLogo,
+  ]); // Only depend on the actual values
 
   const handleLogoFileChange = async (event) => {
     const file = event.target.files[0];
@@ -112,63 +121,40 @@ const ThemeConfiguration = () => {
         setSchoolLogoPreview(reader.result);
       };
       reader.readAsDataURL(file);
+
+      // Update settings context
+      updateChange("schoolLogo", file, true);
     }
   };
 
-  const handleSaveChanges = async () => {
-    if (!clerkUser) return;
-    setIsSaving(true);
-    setSaveSuccess(false);
-    setSaveError("");
-    try {
-      const updatedUser = await updateUserCustomThemeColors(
-        clerkUser.id,
-        customPrimary || "",
-        customSecondary || "",
-        schoolLogo
-      );
-      setUserData(updatedUser.user);
-      setSchoolLogo(null);
-      setSchoolLogoPreview(updatedUser.user?.schoolLogo || "");
-      setCustomPrimary(updatedUser.user?.customPrimaryColor || "");
-      setCustomSecondary(updatedUser.user?.customSecondaryColor || "");
-      setSaveSuccess(true);
-      triggerSchoolUpdate();
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("Failed to save changes:", err);
-      setSaveError(err.message || "Could not save changes.");
-    } finally {
-      setIsSaving(false);
-    }
+  const handlePrimaryColorChange = (e) => {
+    const newColor = e.target.value;
+    setCustomPrimary(newColor);
+
+    // Update settings context
+    const hasChanged = newColor !== (userData?.customPrimaryColor || "");
+    updateChange("customPrimary", hasChanged ? newColor : null, hasChanged);
   };
 
-  const handleResetToSchoolColors = async () => {
-    if (!clerkUser) return;
-    setIsSaving(true);
-    setSaveSuccess(false);
-    setSaveError("");
-    try {
-      const updatedUser = await updateUserCustomThemeColors(
-        clerkUser.id,
-        "",
-        "",
-        null
-      );
-      setUserData(updatedUser.user);
-      setCustomPrimary("");
-      setCustomSecondary("");
-      setSchoolLogo(null);
-      setSchoolLogoPreview(updatedUser.user?.schoolLogo || "");
-      setSaveSuccess(true);
-      triggerSchoolUpdate();
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("Failed to reset to school colors:", err);
-      setSaveError(err.message || "Could not reset colors.");
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSecondaryColorChange = (e) => {
+    const newColor = e.target.value;
+    setCustomSecondary(newColor);
+
+    // Update settings context
+    const hasChanged = newColor !== (userData?.customSecondaryColor || "");
+    updateChange("customSecondary", hasChanged ? newColor : null, hasChanged);
+  };
+
+  const handleResetToSchoolColors = () => {
+    setCustomPrimary("");
+    setCustomSecondary("");
+    setSchoolLogo(null);
+    setSchoolLogoPreview(userData?.schoolLogo || "");
+
+    // Update settings context to indicate reset
+    updateChange("customPrimary", "", true);
+    updateChange("customSecondary", "", true);
+    updateChange("schoolLogo", null, true);
   };
 
   const effectivePrimary = customPrimary || userData?.schoolColors?.primary;
@@ -234,7 +220,7 @@ const ThemeConfiguration = () => {
     customPrimary !== (userData?.customPrimaryColor || "") ||
     customSecondary !== (userData?.customSecondaryColor || "");
   const newLogoIsStaged = !!schoolLogo;
-  const canSaveChanges = colorsHaveChanged || newLogoIsStaged;
+  const hasAnyChanges = colorsHaveChanged || newLogoIsStaged;
 
   return (
     <div className="mt-10 p-6 border border-gray-200 rounded-lg shadow-sm bg-white">
@@ -265,14 +251,14 @@ const ThemeConfiguration = () => {
               label="Primary"
               inputId="customPrimaryPicker"
               currentColorValue={customPrimary}
-              onColorChange={(e) => setCustomPrimary(e.target.value)}
+              onColorChange={handlePrimaryColorChange}
             />
             <ColorSwatch
               displayColor={effectiveSecondary}
               label="Secondary"
               inputId="customSecondaryPicker"
               currentColorValue={customSecondary}
-              onColorChange={(e) => setCustomSecondary(e.target.value)}
+              onColorChange={handleSecondaryColorChange}
             />
           </div>
         </div>
@@ -303,7 +289,7 @@ const ThemeConfiguration = () => {
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
               size="sm"
-              className="w-full sm:w-auto text-xs"
+              className="w-full sm:w-auto text-xs cursor-pointer"
             >
               <UploadCloud className="mr-1.5 h-3 w-3" />
               {effectiveLogo && !schoolLogo ? "Change Logo" : "Upload Logo"}
@@ -347,68 +333,125 @@ const ThemeConfiguration = () => {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 mt-6">
-        <Button
-          onClick={handleSaveChanges}
-          disabled={isSaving || !canSaveChanges}
-          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-        >
-          {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}{" "}
-          Save Changes
-        </Button>
-        <Button
-          onClick={handleResetToSchoolColors}
-          variant="outline"
-          disabled={
-            isSaving ||
-            (!colorsHaveChanged &&
-              !newLogoIsStaged &&
-              !userData?.customPrimaryColor &&
-              !userData?.customSecondaryColor)
-          }
-          className="w-full sm:w-auto cursor-pointer"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" /> Reset to School Colors
-        </Button>
-      </div>
-      {saveSuccess && (
-        <p className="mt-3 text-sm text-green-600 flex items-center">
-          <CheckCircle className="mr-2 h-4 w-4" />
-          Changes saved successfully!
-        </p>
-      )}
-      {saveError && (
-        <p className="mt-3 text-sm text-red-600 flex items-center">
-          <AlertTriangle className="mr-2 h-4 w-4" />
-          Error: {saveError}
-        </p>
+      {hasAnyChanges && (
+        <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 mt-6">
+          <Button
+            onClick={handleResetToSchoolColors}
+            variant="outline"
+            className="w-full sm:w-auto cursor-pointer"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" /> Reset to School Colors
+          </Button>
+          <p className="text-sm text-gray-600">
+            Changes will be saved when you click "Save All"
+          </p>
+        </div>
       )}
 
       {!userData.school && (
         <p className="mt-6 text-sm text-gray-600 bg-yellow-50 border border-yellow-300 p-4 rounded-md">
-          Tip: Set your school in your profile settings to get default theme
-          colors.
+          Tip: Set your university in the University Selection section above to
+          get default theme colors and branding.
         </p>
       )}
     </div>
   );
 };
 
+function SettingsContent() {
+  const { user: clerkUser, isLoaded } = useUser();
+  const { updateCount } = useSchoolUpdate();
+  const [userData, setUserData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (isLoaded && clerkUser) {
+      const loadInitialData = async () => {
+        try {
+          setIsLoading(true);
+          setError("");
+          const data = await fetchUserByClerkId(clerkUser.id);
+          setUserData(data);
+        } catch (err) {
+          console.error("Failed to fetch user data:", err);
+          setError(err.message || "Could not load user data.");
+        }
+        setIsLoading(false);
+      };
+      loadInitialData();
+    }
+  }, [clerkUser, isLoaded, updateCount]);
+
+  const handleDataUpdate = (newUserData) => {
+    console.log("[Settings] Updating user data:", newUserData);
+    setUserData(newUserData);
+
+    // Force a re-render of theme configuration with new data
+    setTimeout(() => {
+      console.log(
+        "[Settings] Triggering additional school update for theme refresh"
+      );
+      // This will trigger the ThemeApplicator to refresh
+    }, 100);
+  };
+
+  if (!isLoaded || isLoading) {
+    return (
+      <main className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Settings</h1>
+        <p className="text-gray-600 mb-8">
+          Manage your account settings and preferences.
+        </p>
+        <div className="space-y-8">
+          <div className="animate-pulse">
+            <div className="h-32 bg-gray-200 rounded-lg mb-8"></div>
+            <div className="h-64 bg-gray-200 rounded-lg"></div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Settings</h1>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-600">Error loading settings: {error}</p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <>
+      <main className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Settings</h1>
+        <p className="text-gray-600 mb-8">
+          Manage your account settings and preferences.
+        </p>
+        <div className="space-y-8">
+          <UniversitySelection
+            userData={userData}
+            onDataChange={handleDataUpdate}
+          />
+          <ThemeConfiguration
+            userData={userData}
+            onDataChange={handleDataUpdate}
+          />
+          <GoogleDriveSettings />
+        </div>
+      </main>
+      <SaveToast onDataUpdate={handleDataUpdate} />
+    </>
+  );
+}
+
 export default function Settings() {
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Settings</h1>
-      <p className="text-gray-600 mb-8">
-        Manage your account settings and preferences.
-      </p>
-      <div className="space-y-8">
-        <ThemeConfiguration />
-        <GoogleDriveSettings />
-      </div>
-    </main>
+    <SettingsProvider>
+      <SettingsContent />
+    </SettingsProvider>
   );
 }
