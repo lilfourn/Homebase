@@ -206,6 +206,9 @@ const importFile = async (req, res) => {
       webViewLink: fileData.webViewLink || "",
       iconLink: fileData.iconLink || "",
       uploadedAt: new Date(),
+      googleDriveModifiedAt: fileData.modifiedTime
+        ? new Date(fileData.modifiedTime)
+        : new Date(),
       courseId: courseId || null,
     };
 
@@ -237,22 +240,53 @@ const removeFile = async (req, res) => {
     if (!userId) return res.status(401).json({ message: "Not signed in" });
 
     const { fileId } = req.params;
+    const { courseId } = req.query; // Get courseId from query parameters
 
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      {
-        $pull: { googleDriveFiles: { fileId } },
-      },
-      { new: true }
-    );
+    let updatedUser;
 
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
+    if (courseId) {
+      // If courseId is provided, only disassociate from this course by setting courseId to null
+      // We also need to ensure the file actually belongs to this user.
+      const user = await User.findOne({
+        userId,
+        "googleDriveFiles.fileId": fileId,
+      });
+      if (!user) {
+        return res
+          .status(404)
+          .json({ message: "File not found for this user." });
+      }
+
+      updatedUser = await User.findOneAndUpdate(
+        { userId, "googleDriveFiles.fileId": fileId },
+        { $set: { "googleDriveFiles.$.courseId": null } },
+        { new: true }
+      );
+      if (!updatedUser) {
+        // This case should ideally not be hit if the previous findOne succeeded, but as a safeguard:
+        return res
+          .status(404)
+          .json({ message: "User or file not found for update." });
+      }
+      res
+        .status(200)
+        .json({ message: "File disassociated from course successfully" });
+    } else {
+      // If no courseId, perform global removal from user's imported files
+      updatedUser = await User.findOneAndUpdate(
+        { userId },
+        { $pull: { googleDriveFiles: { fileId } } },
+        { new: true }
+      );
+      if (!updatedUser) {
+        return res
+          .status(404)
+          .json({ message: "User not found or file already removed." });
+      }
+      res.status(200).json({ message: "File removed globally successfully" });
     }
-
-    res.status(200).json({ message: "File removed successfully" });
   } catch (error) {
-    console.error("Error removing file:", error);
+    console.error("Error removing/disassociating file:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -337,9 +371,13 @@ const importFiles = async (req, res) => {
     const { userId } = getAuth(req);
     if (!userId) return res.status(401).json({ message: "Not signed in" });
 
-    const { files, courseId } = req.body;
+    const { files: pickerFiles, courseId } = req.body; // Renamed to pickerFiles to avoid confusion
 
-    if (!files || !Array.isArray(files) || files.length === 0) {
+    if (
+      !pickerFiles ||
+      !Array.isArray(pickerFiles) ||
+      pickerFiles.length === 0
+    ) {
       return res.status(400).json({ message: "No files provided" });
     }
 
@@ -350,42 +388,194 @@ const importFiles = async (req, res) => {
       return res.status(400).json({ message: "Google Drive not connected" });
     }
 
-    // Filter out already imported files
-    const existingFileIds = user.googleDriveFiles.map((f) => f.fileId);
-    const newFiles = files.filter((file) => !existingFileIds.includes(file.id));
+    const filesToAdd = [];
+    const filesToUpdate = [];
+    let skippedCount = 0;
+    let associatedCount = 0;
 
-    if (newFiles.length === 0) {
-      return res.status(400).json({ message: "All files already imported" });
+    for (const pickerFile of pickerFiles) {
+      const existingFile = user.googleDriveFiles.find(
+        (f) => f.fileId === pickerFile.id
+      );
+
+      if (existingFile) {
+        // File already exists globally
+        if (
+          existingFile.courseId &&
+          existingFile.courseId.toString() === courseId
+        ) {
+          skippedCount++; // Already associated with this course
+        } else {
+          // Exists globally, but not associated with THIS course, or courseId is null
+          filesToUpdate.push({
+            fileId: pickerFile.id,
+            courseId: courseId,
+          });
+        }
+      } else {
+        // New file, add it
+        filesToAdd.push({
+          fileId: pickerFile.id,
+          fileName: pickerFile.name,
+          mimeType: pickerFile.mimeType || "application/octet-stream",
+          size: parseInt(pickerFile.sizeBytes) || 0,
+          webViewLink: pickerFile.url || "",
+          iconLink: pickerFile.iconUrl || "",
+          uploadedAt: new Date(),
+          googleDriveModifiedAt: pickerFile.lastEditedUtc
+            ? new Date(pickerFile.lastEditedUtc)
+            : new Date(),
+          courseId: courseId || null,
+        });
+      }
     }
 
-    // Add files to user's imported files
-    const fileEntries = newFiles.map((file) => ({
-      fileId: file.id,
-      fileName: file.name,
-      mimeType: file.mimeType || "application/octet-stream",
-      size: parseInt(file.sizeBytes) || 0,
-      webViewLink: file.url || "",
-      iconLink: file.iconUrl || "",
-      uploadedAt: new Date(),
-      courseId: courseId || null,
-    }));
+    if (filesToAdd.length === 0 && filesToUpdate.length === 0) {
+      return res.status(200).json({
+        // Changed to 200 as it's not an error, just nothing to do or all skipped
+        message:
+          "No new files to import or associate. All selected files may already be linked to this course.",
+        files: [],
+        skipped: skippedCount,
+        associated: 0,
+      });
+    }
 
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      {
-        $push: { googleDriveFiles: { $each: fileEntries } },
-        $set: { "googleDrive.lastSynced": new Date() },
-      },
-      { new: true }
-    );
+    const operations = [];
+    if (filesToAdd.length > 0) {
+      operations.push({
+        updateMany: {
+          filter: { userId },
+          update: { $push: { googleDriveFiles: { $each: filesToAdd } } },
+        },
+      });
+    }
+
+    if (filesToUpdate.length > 0) {
+      for (const fileToUpdate of filesToUpdate) {
+        operations.push({
+          updateOne: {
+            filter: { userId, "googleDriveFiles.fileId": fileToUpdate.fileId },
+            update: {
+              $set: { "googleDriveFiles.$.courseId": fileToUpdate.courseId },
+            },
+          },
+        });
+      }
+      associatedCount = filesToUpdate.length;
+    }
+
+    if (operations.length > 0) {
+      await User.bulkWrite(operations);
+      await User.findOneAndUpdate(
+        // Update lastSynced separately after bulk ops
+        { userId },
+        { $set: { "googleDrive.lastSynced": new Date() } }
+      );
+    }
 
     res.status(200).json({
-      message: `${fileEntries.length} file(s) imported successfully`,
-      files: fileEntries,
-      skipped: files.length - newFiles.length,
+      message: `${filesToAdd.length} file(s) newly imported, ${associatedCount} file(s) associated with this course.`,
+      files: filesToAdd, // Only return newly added files, or adjust as needed
+      skipped: skippedCount,
+      associated: associatedCount,
     });
   } catch (error) {
-    console.error("Error importing files:", error);
+    console.error("Error importing/associating files:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Associate existing globally imported files with a specific courseId
+ */
+const associateFilesToCourse = async (req, res) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) return res.status(401).json({ message: "Not signed in" });
+
+    const { fileIds, courseId } = req.body;
+
+    if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
+      return res.status(400).json({ message: "No file IDs provided" });
+    }
+    if (!courseId) {
+      return res.status(400).json({ message: "Course ID is required" });
+    }
+
+    const user = await User.findOne({ userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const operations = [];
+    let associatedCount = 0;
+    let alreadyAssociatedCount = 0;
+    let notFoundCount = 0;
+
+    for (const fileIdToAssociate of fileIds) {
+      const fileInUser = user.googleDriveFiles.find(
+        (f) => f.fileId === fileIdToAssociate
+      );
+      if (fileInUser) {
+        if (
+          fileInUser.courseId &&
+          fileInUser.courseId.toString() === courseId
+        ) {
+          alreadyAssociatedCount++;
+        } else {
+          operations.push({
+            updateOne: {
+              filter: { userId, "googleDriveFiles.fileId": fileIdToAssociate },
+              update: { $set: { "googleDriveFiles.$.courseId": courseId } },
+            },
+          });
+          associatedCount++;
+        }
+      } else {
+        notFoundCount++;
+      }
+    }
+
+    if (operations.length > 0) {
+      await User.bulkWrite(operations);
+      await User.findOneAndUpdate(
+        { userId },
+        { $set: { "googleDrive.lastSynced": new Date() } }
+      );
+    }
+
+    let message = "File association process completed.";
+    if (associatedCount > 0)
+      message += ` ${associatedCount} file(s) newly associated with this course.`;
+    if (alreadyAssociatedCount > 0)
+      message += ` ${alreadyAssociatedCount} file(s) were already associated with this course.`;
+    if (notFoundCount > 0)
+      message += ` ${notFoundCount} file(s) were not found in your imported files.`;
+
+    if (
+      operations.length === 0 &&
+      associatedCount === 0 &&
+      notFoundCount === 0 &&
+      alreadyAssociatedCount > 0
+    ) {
+      message = `${alreadyAssociatedCount} file(s) are already associated with this course. No changes made.`;
+    } else if (
+      operations.length === 0 &&
+      associatedCount === 0 &&
+      notFoundCount > 0
+    ) {
+      message = `Could not associate files: ${notFoundCount} file(s) were not found in your imported files.`;
+    }
+
+    res.status(200).json({
+      message,
+      associated: associatedCount,
+      alreadyAssociated: alreadyAssociatedCount,
+      notFound: notFoundCount,
+    });
+  } catch (error) {
+    console.error("Error associating files with course:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -400,4 +590,5 @@ module.exports = {
   removeFile,
   getImportedFiles,
   getPickerConfig,
+  associateFilesToCourse,
 };

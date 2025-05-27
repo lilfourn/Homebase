@@ -141,6 +141,10 @@ const UserSchema = mongoose.Schema(
           type: Date,
           default: Date.now,
         },
+        googleDriveModifiedAt: {
+          type: Date,
+          default: null,
+        },
         courseId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Course",

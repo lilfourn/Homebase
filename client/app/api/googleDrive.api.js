@@ -79,10 +79,15 @@ export async function importGoogleDriveFile(token, fileId, courseId = null) {
 }
 
 /**
- * Remove imported file from database
+ * Remove imported file from database or disassociate from a course
  */
-export async function removeGoogleDriveFile(token, fileId) {
-  const res = await fetch(`${API_URL}/api/google-drive/files/${fileId}`, {
+export async function removeGoogleDriveFile(token, fileId, courseId = null) {
+  let url = `${API_URL}/api/google-drive/files/${fileId}`;
+  if (courseId) {
+    url += `?courseId=${courseId}`;
+  }
+
+  const res = await fetch(url, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -90,7 +95,14 @@ export async function removeGoogleDriveFile(token, fileId) {
     credentials: "include",
   });
 
-  if (!res.ok) throw new Error(`Remove file error: ${res.status}`);
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({ message: res.statusText }));
+    throw new Error(
+      errorData.message || `Remove/Disassociate file error: ${res.status}`
+    );
+  }
   return res.json();
 }
 
@@ -147,6 +159,34 @@ export async function importGoogleDriveFiles(token, files, courseId = null) {
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(error.message || `Import files error: ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Associate existing globally imported files with a specific course
+ */
+export async function associateGoogleDriveFilesToCourse(
+  token,
+  fileIds,
+  courseId
+) {
+  const res = await fetch(`${API_URL}/api/google-drive/associate-course`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      fileIds,
+      courseId,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(error.message || `Associate files error: ${res.status}`);
   }
   return res.json();
 }

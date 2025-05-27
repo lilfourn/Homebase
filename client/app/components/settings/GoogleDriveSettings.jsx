@@ -55,6 +55,12 @@ const FileListItem = ({ file, onRemove, isLoading }) => {
           <p className="text-xs text-gray-500">
             {formatFileSize(file.size)} • Imported{" "}
             {new Date(file.uploadedAt).toLocaleDateString()}
+            {file.googleDriveModifiedAt && (
+              <>
+                • Modified (Drive):{" "}
+                {new Date(file.googleDriveModifiedAt).toLocaleDateString()}
+              </>
+            )}
           </p>
         </div>
       </div>

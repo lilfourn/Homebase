@@ -10,6 +10,7 @@ const {
   removeFile,
   getImportedFiles,
   getPickerConfig,
+  associateFilesToCourse,
 } = require("../controllers/googleDrive.controller");
 
 const router = express.Router();
@@ -40,5 +41,8 @@ router.delete("/files/:fileId", requireAuth(), removeFile);
 
 // Get imported files
 router.get("/imported", requireAuth(), getImportedFiles);
+
+// Associate existing global files with a course
+router.post("/associate-course", requireAuth(), associateFilesToCourse);
 
 module.exports = router;
