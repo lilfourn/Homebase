@@ -14,6 +14,7 @@ import { SidebarContext } from "@/app/components/ui/sidebar";
 import { useCourses } from "@/app/context/CourseContext";
 import { Loader2, PlusCircle } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
+import LucideReactLibrary from "../ui/lucideReactLibrary";
 
 export default function AddCourseForm() {
   const { expanded } = useContext(SidebarContext);
@@ -153,15 +154,7 @@ export default function AddCourseForm() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Icon URL
-              <input
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                placeholder="https://example.com/icon.png"
-              />
-            </label>
+            <LucideReactLibrary value={icon} onChange={setIcon} />
           </div>
 
           {error && (

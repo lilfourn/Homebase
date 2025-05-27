@@ -2,8 +2,10 @@
 
 import { SidebarContext } from "@/app/components/ui/sidebar";
 import { useCourses } from "@/app/context/CourseContext";
+import * as LucideIcons from "lucide-react";
 import { Folder, Loader2, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useContext, useState } from "react";
 
 const COURSE_COLORS = [
@@ -29,10 +31,20 @@ export default function UserCourseList() {
   const { courses, error, loading, deleteCourse } = useCourses();
   const [isDeleting, setIsDeleting] = useState(false);
   const { expanded } = useContext(SidebarContext);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const handleDelete = async (id) => {
     try {
       setIsDeleting(true);
+      // If the user is currently viewing the deleted course, redirect to /dashboard immediately
+      if (
+        pathname &&
+        pathname.includes("/dashboard/course/") &&
+        pathname.endsWith(id)
+      ) {
+        router.push("/dashboard");
+      }
       await deleteCourse(id);
       // The course list will automatically update via context
     } catch (err) {
@@ -63,21 +75,23 @@ export default function UserCourseList() {
   if (!expanded) {
     return (
       <div className="flex flex-wrap gap-1.5 justify-center max-w-12">
-        {courses.map((c, index) => (
-          <Link
-            key={c._id}
-            href={`/dashboard/course/${c.courseInstanceId}`}
-            className="flex items-center justify-center cursor-pointer"
-            title={`${c.name} (${c.code})`}
-          >
-            <Folder
-              className={`w-3 h-3 ${getCourseColor(index).replace(
-                "bg-",
-                "text-"
-              )} flex-shrink-0`}
-            />
-          </Link>
-        ))}
+        {courses.map((c, index) => {
+          const Icon =
+            c.icon && LucideIcons[c.icon] ? LucideIcons[c.icon] : Folder;
+          return (
+            <Link
+              key={c._id}
+              href={`/dashboard/course/${c.courseInstanceId}`}
+              className="flex items-center justify-center cursor-pointer"
+              title={`${c.name} (${c.code})`}
+            >
+              <Icon
+                className={`w-3 h-3 flex-shrink-0`}
+                style={{ color: "var(--custom-primary-color, inherit)" }}
+              />
+            </Link>
+          );
+        })}
       </div>
     );
   }
@@ -85,31 +99,39 @@ export default function UserCourseList() {
   return (
     <div className="w-full">
       <ul className="space-y-2 w-full">
-        {courses.map((c) => (
-          <li
-            key={c._id}
-            className={`flex justify-between items-center bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full`}
-          >
-            <Link
-              href={`/dashboard/course/${c.courseInstanceId}`}
-              className={`flex-grow p-2 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap cursor-pointer opacity-100`}
+        {courses.map((c, index) => {
+          const Icon =
+            c.icon && LucideIcons[c.icon] ? LucideIcons[c.icon] : Folder;
+          return (
+            <li
+              key={c._id}
+              className={`flex justify-between items-center bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full`}
             >
-              {c.name}
-            </Link>
-            <button
-              onClick={() => handleDelete(c._id)}
-              disabled={isDeleting}
-              className="text-red-500 hover:text-red-600 p-1 mr-2 rounded-full hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
-              aria-label="Delete course"
-            >
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <X className="h-4 w-4" />
-              )}
-            </button>
-          </li>
-        ))}
+              <Link
+                href={`/dashboard/course/${c.courseInstanceId}`}
+                className={`flex-grow p-2 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap cursor-pointer opacity-100 flex items-center gap-2`}
+              >
+                <Icon
+                  className={`w-4 h-4`}
+                  style={{ color: "var(--custom-primary-color, inherit)" }}
+                />
+                <span>{c.name}</span>
+              </Link>
+              <button
+                onClick={() => handleDelete(c._id)}
+                disabled={isDeleting}
+                className="text-red-500 hover:text-red-600 p-1 mr-2 rounded-full hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
+                aria-label="Delete course"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

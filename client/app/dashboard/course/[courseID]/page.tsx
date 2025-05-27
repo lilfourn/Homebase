@@ -2,8 +2,10 @@
 
 import { fetchCourseByInstanceId } from "@/app/api/courses.api";
 import { useAuth } from "@clerk/nextjs";
+import * as LucideIcons from "lucide-react";
+import { Folder } from "lucide-react";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface CourseData {
@@ -22,6 +24,7 @@ export default function CoursePage() {
   const params = useParams();
   const { getToken, isSignedIn, isLoaded, userId: authUserId } = useAuth();
   const courseInstanceId = params.courseID as string; // courseID from URL maps to courseInstanceId
+  const router = useRouter();
 
   const [course, setCourse] = useState<CourseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,9 +69,17 @@ export default function CoursePage() {
         setCourse(data);
       } catch (err) {
         console.error("Failed to fetch course:", err);
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred."
-        );
+        if (
+          err &&
+          (err.status === 404 ||
+            (err.message && err.message.toLowerCase().includes("not found")))
+        ) {
+          router.push("/dashboard");
+        } else {
+          setError(
+            err instanceof Error ? err.message : "An unknown error occurred."
+          );
+        }
         setCourse(null);
       } finally {
         setLoading(false);
@@ -90,6 +101,7 @@ export default function CoursePage() {
     isLoaded,
     authUserId,
     params.courseID,
+    router,
   ]);
 
   if (!isLoaded || loading) {
@@ -123,15 +135,19 @@ export default function CoursePage() {
       <div className="bg-white shadow-xl rounded-lg overflow-hidden">
         <div className="p-6 sm:p-8">
           <div className="flex items-center mb-6">
-            {course.icon && (
-              <Image
-                src={course.icon}
-                alt={`${course.name} icon`}
-                width={80}
-                height={80}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mr-4 sm:mr-6 border-2 border-blue-500 object-cover"
-              />
-            )}
+            {(() => {
+              const Icon =
+                course.icon && LucideIcons[course.icon]
+                  ? LucideIcons[course.icon]
+                  : Folder;
+              return (
+                <Icon
+                  className="w-16 h-16 sm:w-20 sm:h-20 mr-4 sm:mr-6"
+                  style={{ color: "var(--custom-primary-color, #2563eb)" }}
+                  aria-label={`${course.name} icon`}
+                />
+              );
+            })()}
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">
                 {course.name}
