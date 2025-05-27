@@ -6,9 +6,9 @@ Based on the [Product Requirements Document (prd.md)](../prd.md).
 
 ### 7.1. File Management
 
-- [ ] **(P0)** Implement functionality for users to upload files (e.g., lecture notes, readings, assignments) specific to each course.
-- [ ] **(P0)** Ensure uploaded files are stored securely and correctly associated with the specific user and course in MongoDB.
-- [ ] **(P1)** Develop UI for users to view, download, and delete uploaded files.
+- [x] **(P0)** Implement functionality for users to upload files (e.g., lecture notes, readings, assignments) specific to each course.
+- [x] **(P0)** Ensure uploaded files are stored securely and correctly associated with the specific user and course in MongoDB.
+- [x] **(P1)** Develop UI for users to view, download, and delete uploaded files.
 - [x] **(P1)** Implement display of file type icons and last modified dates for uploaded files.
 
 ### 7.2. Syllabus Processing & Information Extraction
