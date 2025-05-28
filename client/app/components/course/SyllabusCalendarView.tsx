@@ -153,26 +153,6 @@ export const SyllabusCalendarView: React.FC<SyllabusCalendarProps> = ({
     }
   };
 
-  // Generate month options for quick navigation
-  const generateMonthOptions = () => {
-    const options = [];
-    const currentYear = moment().year();
-
-    // Generate options for current year - 1, current year, and current year + 1
-    for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-      for (let month = 0; month < 12; month++) {
-        const monthDate = moment({ year, month });
-        options.push({
-          value: monthDate.toDate(),
-          label: monthDate.format("MMMM YYYY"),
-        });
-      }
-    }
-    return options;
-  };
-
-  const monthOptions = generateMonthOptions();
-
   if (!parsedData) {
     return (
       <Card>
@@ -365,25 +345,6 @@ export const SyllabusCalendarView: React.FC<SyllabusCalendarProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Month Picker */}
-            <select
-              value={moment(date).format("YYYY-MM")}
-              onChange={(e) => {
-                const selectedDate = moment(e.target.value, "YYYY-MM").toDate();
-                setDate(selectedDate);
-              }}
-              className="px-3 py-1 border border-gray-300 rounded-lg text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {monthOptions.map((option) => (
-                <option
-                  key={moment(option.value).format("YYYY-MM")}
-                  value={moment(option.value).format("YYYY-MM")}
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
             <h2 className="text-lg font-semibold text-gray-900">
               {formatDateLabel()}
             </h2>

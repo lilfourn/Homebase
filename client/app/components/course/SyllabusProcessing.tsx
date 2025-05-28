@@ -24,6 +24,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import moment from "moment";
 import { SyllabusCalendarView } from "./SyllabusCalendarView";
 
 interface SyllabusProcessingProps {
@@ -179,7 +180,7 @@ const AssignmentsList: React.FC<AssignmentsListProps> = ({
                 )}
               </div>
               <Badge variant="outline" className="text-xs">
-                {item.dueDate}
+                {moment(item.dueDate).format("MMM D, YYYY")}
               </Badge>
             </div>
           </div>
@@ -215,7 +216,7 @@ const ExamsList: React.FC<ExamsListProps> = ({ exams, title, icon }) => (
                 )}
               </div>
               <Badge variant="outline" className="text-xs">
-                {item.date}
+                {moment(item.date).format("MMM D, YYYY")}
               </Badge>
             </div>
           </div>
