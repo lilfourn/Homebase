@@ -31,7 +31,7 @@ export interface UserData {
 }
 
 // Tab types
-export type TabType = "overview" | "library";
+export type TabType = "overview" | "tasks" | "library";
 
 // Component props
 export interface CourseHeaderProps {
@@ -102,6 +102,85 @@ export interface UseGooglePickerReturn {
 export interface UseToastReturn {
   toast: ToastMessage | null;
   showToast: (message: string, type: "success" | "error") => void;
+}
+
+// Todo types
+export type TodoPriority = "low" | "medium" | "high";
+export type TodoUrgency = "overdue" | "urgent" | "soon" | "normal" | null;
+
+export interface TodoData {
+  _id: string;
+  todoId: string;
+  userId: string;
+  courseInstanceId: string;
+  title: string;
+  description: string;
+  dueDate: string | null;
+  completed: boolean;
+  priority: TodoPriority;
+  tags: string[];
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  urgency?: TodoUrgency;
+}
+
+export interface CreateTodoData {
+  courseInstanceId: string;
+  title: string;
+  description?: string;
+  dueDate?: string | null;
+  priority?: TodoPriority;
+  tags?: string[];
+}
+
+export interface UpdateTodoData {
+  title?: string;
+  description?: string;
+  dueDate?: string | null;
+  priority?: TodoPriority;
+  tags?: string[];
+  completed?: boolean;
+}
+
+export interface TasksTabProps {
+  course: CourseData;
+  showToast?: (message: string, type: "success" | "error") => void;
+}
+
+export interface TodoListProps {
+  todos: TodoData[];
+  onToggleComplete: (todoId: string) => void;
+  onEdit: (todo: TodoData) => void;
+  onDelete: (todoId: string) => void;
+  isLoading?: boolean;
+}
+
+export interface TodoItemProps {
+  todo: TodoData;
+  onToggleComplete: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+export interface TodoFormProps {
+  onSubmit: (data: CreateTodoData | UpdateTodoData) => void;
+  onCancel: () => void;
+  initialData?: TodoData | null;
+  courseInstanceId: string;
+  isLoading?: boolean;
+}
+
+// Hook return types
+export interface UseTodosReturn {
+  todos: TodoData[];
+  loading: boolean;
+  error: string | null;
+  createTodo: (data: CreateTodoData) => Promise<void>;
+  updateTodo: (todoId: string, data: UpdateTodoData) => Promise<void>;
+  toggleTodo: (todoId: string) => Promise<void>;
+  deleteTodo: (todoId: string) => Promise<void>;
+  refreshTodos: () => Promise<void>;
 }
 
 // Google APIs declaration

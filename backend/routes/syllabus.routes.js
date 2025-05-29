@@ -44,4 +44,11 @@ router.post(
   syllabusController.reprocessSyllabus
 );
 
+// Route to update parsed data
+router.put(
+  "/:courseInstanceId/parsed-data",
+  requireAuth(),
+  syllabusController.updateParsedData
+);
+
 module.exports = router;

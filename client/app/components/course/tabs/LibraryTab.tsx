@@ -1,6 +1,9 @@
 import CourseGoogleDriveImporter from "@/app/components/course/files/CourseGoogleDriveImporter.jsx";
 import { Button } from "@/app/components/ui/button";
-import { SyllabusProcessingStatus } from "@/app/hooks/useSyllabusProcessing";
+import { 
+  SyllabusProcessingStatus,
+  ParsedSyllabusData 
+} from "@/app/hooks/useSyllabusProcessing";
 import {
   LibraryTabProps as OriginalLibraryTabProps,
   SyllabusData,
@@ -13,6 +16,7 @@ import {
   FileText,
   Loader2,
   RefreshCw,
+  Upload,
   XCircle,
 } from "lucide-react";
 import { SyllabusPrompt } from "../ui/SyllabusPrompt";
@@ -29,6 +33,8 @@ export interface LibraryTabProps extends OriginalLibraryTabProps {
   isProcessingAi: boolean; // Renamed to avoid conflict if isProcessing is already used
   startSyllabusProcessing: () => void;
   reprocessSyllabusAi: () => void;
+  parsedData: ParsedSyllabusData | null;
+  showToast?: (message: string, type: "success" | "error") => void;
 }
 
 export const LibraryTab = ({
@@ -43,15 +49,6 @@ export const LibraryTab = ({
   startSyllabusProcessing,
   reprocessSyllabusAi,
 }: LibraryTabProps) => {
-  const canProcess =
-    hasSyllabus &&
-    syllabusData &&
-    !processingStatus?.isProcessed &&
-    !processingStatus?.processingError;
-  const canReprocess =
-    hasSyllabus &&
-    syllabusData &&
-    (processingStatus?.isProcessed || processingStatus?.processingError);
 
   return (
     <div className="space-y-6">
@@ -62,30 +59,41 @@ export const LibraryTab = ({
 
       {/* Display Syllabus information if it exists */}
       {hasSyllabus && syllabusData && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-            <div className="flex items-center space-x-3 mb-3 sm:mb-0">
-              <FileText className="h-8 w-8 text-green-600" />
-              <div>
-                <h3 className="text-lg font-semibold text-green-700">
+        <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-sm">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-start space-x-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FileText className="h-8 w-8 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">
                   Course Syllabus
                 </h3>
-                <p className="text-green-600 text-sm">
+                <p className="text-gray-700 text-sm font-medium mt-1">
                   {syllabusData.fileName}
                 </p>
-                <p className="text-green-500 text-xs">
-                  Uploaded:{" "}
-                  {new Date(syllabusData.uploadedAt).toLocaleDateString()}
-                </p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
+                  <span>
+                    Uploaded: {new Date(syllabusData.uploadedAt).toLocaleDateString()}
+                  </span>
+                  {processingStatus?.isProcessed && (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <CheckCircle className="h-3 w-3" />
+                      Analyzed
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-2 self-start sm:self-center">
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
               {syllabusData.webViewLink && (
                 <Button
                   variant="outline"
                   size="sm"
                   asChild
-                  className="cursor-pointer border-green-300 text-green-700 hover:bg-green-100"
+                  className="cursor-pointer"
                 >
                   <a
                     href={syllabusData.webViewLink}
@@ -94,109 +102,80 @@ export const LibraryTab = ({
                     className="flex items-center"
                   >
                     <ExternalLink className="h-4 w-4 mr-1" />
-                    View
+                    View Original
                   </a>
                 </Button>
               )}
+              
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onShowSyllabusModal}
-                className="cursor-pointer border-green-300 text-green-700 hover:bg-green-100"
+                className="cursor-pointer"
               >
-                Replace
+                <Upload className="h-4 w-4 mr-1" />
+                Upload New
               </Button>
-            </div>
-          </div>
 
-          {/* AI Processing Section */}
-          <div className="mt-4 pt-4 border-t border-green-200">
-            <h4 className="text-md font-semibold text-gray-700 mb-2 flex items-center">
-              <Brain className="w-5 h-5 mr-2 text-blue-600" />
-              AI Syllabus Analysis
-            </h4>
-            {processingStatus ? (
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center space-x-2 text-sm">
-                  {isProcessingAi ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                  ) : processingStatus.isProcessed ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : processingStatus.processingError ? (
-                    <XCircle className="h-4 w-4 text-red-500" />
-                  ) : (
-                    <Brain className="h-4 w-4 text-gray-500" />
-                  )}
-                  <span className="flex-1 min-w-0 break-words text-gray-700">
-                    {isProcessingAi
-                      ? "Processing..."
-                      : processingStatus.isProcessed
-                      ? "Successfully Analyzed"
-                      : processingStatus.processingError
-                      ? `Error: ${processingStatus.processingError.substring(
-                          0,
-                          50
-                        )}${
-                          processingStatus.processingError.length > 50
-                            ? "..."
-                            : ""
-                        }`
-                      : "Ready to Analyze"}
-                  </span>
-                </div>
-                <div className="flex-shrink-0">
-                  {canProcess && !isProcessingAi && (
-                    <Button
-                      size="sm"
-                      onClick={startSyllabusProcessing}
-                      className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Brain className="w-4 h-4 mr-1" /> Analyze Syllabus
-                    </Button>
-                  )}
-                  {canReprocess && !isProcessingAi && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={reprocessSyllabusAi}
-                      className="cursor-pointer border-gray-300 text-gray-700 hover:bg-gray-100"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-1" /> Re-analyze
-                    </Button>
-                  )}
-                  {isProcessingAi && (
-                    <Button
-                      size="sm"
-                      disabled
-                      className="cursor-not-allowed bg-gray-200 text-gray-500"
-                    >
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />{" "}
-                      Processing...
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="text-sm text-gray-600">
-                  Loading analysis status...
-                </span>
+
+              {!processingStatus?.isProcessed && !isProcessingAi && (
                 <Button
                   size="sm"
                   onClick={startSyllabusProcessing}
-                  disabled={isProcessingAi}
                   className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {isProcessingAi ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  ) : (
-                    <Brain className="w-4 h-4 mr-1" />
-                  )}
-                  Analyze Syllabus
+                  <Brain className="h-4 w-4 mr-1" />
+                  Analyze with AI
                 </Button>
-              </div>
-            )}
+              )}
+
+              {processingStatus?.isProcessed && !isProcessingAi && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={reprocessSyllabusAi}
+                  className="cursor-pointer"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Re-analyze
+                </Button>
+              )}
+
+              {isProcessingAi && (
+                <Button
+                  size="sm"
+                  disabled
+                  className="cursor-not-allowed"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  Analyzing...
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Processing Status Message */}
+          {processingStatus?.processingError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex items-start gap-2">
+                <XCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">
+                  Analysis failed: {processingStatus.processingError}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isProcessingAi && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                <p className="text-sm text-blue-700">
+                  AI is analyzing your syllabus. This may take a few moments...
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

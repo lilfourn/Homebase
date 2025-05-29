@@ -11,6 +11,7 @@ const googleDriveRoute = require("./routes/googleDrive.route");
 const { clerkClient, clerkMiddleware } = require("@clerk/express");
 const { verifyWebhook } = require("@clerk/express");
 const syllabusRoutes = require("./routes/syllabus.routes");
+const todoRoutes = require("./routes/todo.route");
 const app = express();
 
 // Middleware config
@@ -34,6 +35,7 @@ app.use("/api/courses", courseRoute);
 app.use("/api/users", userRoute);
 app.use("/api/google-drive", googleDriveRoute);
 app.use("/api/syllabus", syllabusRoutes);
+app.use("/api/todos", todoRoutes);
 
 app.get("/", async (req, res) => {
   res.send("Good Job");
@@ -171,10 +173,7 @@ app.post("/sync/users", async (req, res) => {
 });
 
 mongoose
-  .connect(process.env.MONGO_DB, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_DB)
   .then(async () => {
     console.log("Connected to database!");
 
@@ -193,6 +192,18 @@ mongoose
         .collection("syllabi")
         .createIndex(
           { userId: 1, courseInstanceId: 1 },
+          { unique: true, background: true }
+        );
+      await mongoose.connection.db
+        .collection("todos")
+        .createIndex(
+          { userId: 1, courseInstanceId: 1 },
+          { background: true }
+        );
+      await mongoose.connection.db
+        .collection("todos")
+        .createIndex(
+          { todoId: 1 },
           { unique: true, background: true }
         );
       console.log("Database indexes created successfully");

@@ -319,3 +319,57 @@ exports.reprocessSyllabus = async (req, res) => {
     });
   }
 };
+
+// Update parsed syllabus data
+exports.updateParsedData = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const { parsedData } = req.body;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!parsedData) {
+      return res.status(400).json({ message: "Parsed data is required" });
+    }
+
+    // Find the syllabus
+    const syllabus = await Syllabus.findOne({
+      courseInstanceId,
+      userId: auth.userId,
+    });
+
+    if (!syllabus) {
+      return res.status(404).json({ message: "Syllabus not found" });
+    }
+
+    // Validate the parsed data structure
+    const validatedData = {
+      gradingBreakdown: parsedData.gradingBreakdown || {},
+      assignmentDates: parsedData.assignmentDates || [],
+      examDates: parsedData.examDates || [],
+      contacts: parsedData.contacts || [],
+      confidence: parsedData.confidence || 1.0,
+      manuallyEdited: true,
+      lastEditedAt: new Date(),
+    };
+
+    // Update the parsed data
+    syllabus.parsedData = validatedData;
+    syllabus.isProcessed = true;
+    await syllabus.save();
+
+    res.status(200).json({
+      message: "Parsed data updated successfully",
+      parsedData: validatedData,
+    });
+  } catch (error) {
+    console.error("Error updating parsed data:", error);
+    res.status(500).json({
+      message: "Error updating parsed data",
+      error: error.message,
+    });
+  }
+};

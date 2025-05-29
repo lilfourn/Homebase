@@ -200,3 +200,28 @@ export const reprocessSyllabus = async (courseInstanceId, authToken) => {
     throw error.response?.data || error;
   }
 };
+
+export const updateSyllabusParsedData = async (
+  courseInstanceId,
+  parsedData,
+  authToken
+) => {
+  try {
+    const response = await axiosInstance.put(
+      `/api/syllabus/${courseInstanceId}/parsed-data`,
+      { parsedData },
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error updating syllabus parsed data:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};

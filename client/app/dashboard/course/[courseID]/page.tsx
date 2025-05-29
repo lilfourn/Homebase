@@ -22,11 +22,12 @@ import {
   LoadingState,
   NoCourseState,
   OverviewTab,
-  SyllabusProcessing,
+  SyllabusAnalysisEditView,
   SyllabusUploadModal,
   TabNavigation,
   ToastNotification,
 } from "@/app/components/course";
+import { TasksTab } from "@/app/components/course/tabs/TasksTab";
 
 export default function CoursePage() {
   const params = useParams();
@@ -124,18 +125,21 @@ export default function CoursePage() {
               showSyllabusModal={showSyllabusModal}
               onShowSyllabusModal={handleShowSyllabusModal}
             />
-            {hasSyllabus && (
-              <>
-                <SyllabusProcessing
-                  courseInstanceId={courseInstanceId}
-                  isSignedIn={isSignedIn}
-                  isLoaded={isLoaded}
-                  showToast={showToast}
-                />
-              </>
+            {hasSyllabus && processingStatus?.isProcessed && parsedData && (
+              <SyllabusAnalysisEditView 
+                parsedData={parsedData}
+                courseInstanceId={courseInstanceId}
+                onDataUpdate={(updatedData) => {
+                  // Update the local state with new data
+                  loadAiParsedData();
+                }}
+                showToast={showToast}
+              />
             )}
           </div>
         );
+      case "tasks":
+        return <TasksTab course={course} showToast={showToast} />;
       case "library":
         return (
           <LibraryTab
@@ -149,6 +153,8 @@ export default function CoursePage() {
             isProcessingAi={isProcessingAi}
             startSyllabusProcessing={startSyllabusProcessing}
             reprocessSyllabusAi={reprocessSyllabusAi}
+            parsedData={parsedData}
+            showToast={showToast}
           />
         );
       default:
