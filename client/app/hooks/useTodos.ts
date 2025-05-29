@@ -33,7 +33,7 @@ export const useTodos = ({
   const [error, setError] = useState<string | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
   const retryCount = useRef(0);
-  const authTimeoutRef = useRef<NodeJS.Timeout>();
+  const authTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Fetch todos with timeout and retry logic
   const fetchTodos = useCallback(async (isRetry = false) => {

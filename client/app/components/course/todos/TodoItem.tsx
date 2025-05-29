@@ -13,6 +13,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import moment from "moment";
+import { useEffect, useRef } from "react";
 
 export const TodoItem = ({
   todo,
@@ -20,6 +21,30 @@ export const TodoItem = ({
   onEdit,
   onDelete,
 }: TodoItemProps) => {
+  const itemRef = useRef<HTMLDivElement>(null);
+  
+  // Add highlight effect for newly restored tasks
+  useEffect(() => {
+    if (!todo.completed && itemRef.current) {
+      // Check if this task was recently updated (within last 2 seconds)
+      const updatedTime = new Date(todo.updatedAt || todo.createdAt).getTime();
+      const now = Date.now();
+      const isRecentlyUpdated = now - updatedTime < 2000;
+      
+      if (isRecentlyUpdated) {
+        // Add highlight class
+        itemRef.current.classList.add("animate-highlight");
+        
+        // Remove after animation
+        setTimeout(() => {
+          if (itemRef.current) {
+            itemRef.current.classList.remove("animate-highlight");
+          }
+        }, 2000);
+      }
+    }
+  }, [todo.completed, todo.updatedAt, todo.createdAt]);
+
   // Get category icon
   const getCategoryIcon = () => {
     switch (todo.category) {
@@ -105,6 +130,8 @@ export const TodoItem = ({
 
   return (
     <div
+      ref={itemRef}
+      data-todo-id={todo.todoId}
       className={`group relative p-4 rounded-lg border transition-all ${getUrgencyStyles()} ${
         todo.completed ? "opacity-60" : ""
       } hover:shadow-md`}

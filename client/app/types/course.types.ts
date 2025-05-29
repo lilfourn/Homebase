@@ -146,7 +146,14 @@ export interface UpdateTodoData {
 
 export interface TasksTabProps {
   course: CourseData;
-  showToast?: (message: string, type: "success" | "error") => void;
+  todos: TodoData[];
+  loading: boolean;
+  error: string | null;
+  createTodo: (data: CreateTodoData) => Promise<void>;
+  updateTodo: (todoId: string, data: UpdateTodoData) => Promise<void>;
+  toggleTodo: (todoId: string) => Promise<void>;
+  deleteTodo: (todoId: string) => Promise<void>;
+  refreshTodos: () => Promise<void>;
 }
 
 export interface TodoListProps {

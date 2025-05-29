@@ -103,7 +103,7 @@ export const TodoList = ({
       {/* Completed Todos */}
       {completedTodos.length > 0 && (
         <div>
-          <details className="group">
+          <details className="group" open>
             <summary className="cursor-pointer list-none">
               <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
                 <span className="group-open:rotate-90 transition-transform">▶</span>

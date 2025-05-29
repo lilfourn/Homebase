@@ -16,13 +16,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseTodosParams {
   courseInstanceId: string;
-  showToast?: (message: string, type: "success" | "error") => void;
+  showToast?: (
+    message: string,
+    type: "success" | "error" | "info",
+    options?: {
+      duration?: number;
+      undoAction?: () => void;
+      undoLabel?: string;
+      countdown?: boolean;
+    }
+  ) => void;
 }
 
-const FETCH_TIMEOUT = 25000; // 25 seconds (longer than server timeout)
-const AUTH_TIMEOUT = 30000; // 30 seconds for auth to be ready
+const FETCH_TIMEOUT = 25000;
+const AUTH_TIMEOUT = 30000;
 const MAX_RETRIES = 3;
-const CACHE_TTL = 30000; // 30 seconds cache
+const CACHE_TTL = 30000;
+const UNDO_DURATION = 8000; // 8 seconds for undo
+const POLL_INTERVAL = 30000; // 30 seconds polling interval
 
 // Simple cache implementation
 const todosCache = new Map<string, { data: TodoData[]; timestamp: number }>();
@@ -40,6 +51,7 @@ export const useTodos = ({
   const authTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const isUnmounted = useRef(false);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Check cache
   const getCachedTodos = useCallback(() => {
@@ -69,7 +81,6 @@ export const useTodos = ({
 
     // Check auth state
     if (!isLoaded) {
-      // Set a timeout for auth loading
       if (!authTimeoutRef.current) {
         authTimeoutRef.current = setTimeout(() => {
           if (!isUnmounted.current) {
@@ -113,13 +124,11 @@ export const useTodos = ({
     }
 
     try {
-      // Only show loading on first fetch or retry
       if (!hasInitialized || isRetry) {
         setLoading(true);
       }
       setError(null);
 
-      // Set a fetch timeout
       const fetchPromise = new Promise<any>(async (resolve, reject) => {
         try {
           const token = await getToken();
@@ -135,17 +144,14 @@ export const useTodos = ({
         }
       });
 
-      // Create timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
         fetchTimeoutRef.current = setTimeout(() => {
           reject(new Error("Request timeout"));
         }, FETCH_TIMEOUT);
       });
 
-      // Race between fetch and timeout
       const response = await Promise.race([fetchPromise, timeoutPromise]);
 
-      // Clear timeout
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
         fetchTimeoutRef.current = undefined;
@@ -155,7 +161,7 @@ export const useTodos = ({
         const todosData = response.data || [];
         setTodos(todosData);
         setCachedTodos(todosData);
-        retryCount.current = 0; // Reset retry count on success
+        retryCount.current = 0;
         setHasInitialized(true);
       } else {
         throw new Error(response.error || "Failed to fetch tasks");
@@ -165,7 +171,6 @@ export const useTodos = ({
 
       console.error("Error fetching todos:", err);
 
-      // Handle timeout or network errors with retry
       const isRetryable = 
         (err.message === "Request timeout" || 
          err.message.includes("Network") ||
@@ -175,7 +180,7 @@ export const useTodos = ({
 
       if (isRetryable) {
         retryCount.current++;
-        const retryDelay = Math.min(1000 * Math.pow(2, retryCount.current - 1), 5000); // Exponential backoff with max 5s
+        const retryDelay = Math.min(1000 * Math.pow(2, retryCount.current - 1), 5000);
         
         showToast?.(`Connection issue. Retrying... (${retryCount.current}/${MAX_RETRIES})`, "error");
         
@@ -190,12 +195,10 @@ export const useTodos = ({
       const errorMessage = err.response?.data?.message || err.message || "Failed to load tasks";
       setError(errorMessage);
       
-      // Only show toast on final failure
       if (retryCount.current >= MAX_RETRIES || !isRetryable) {
         showToast?.(errorMessage, "error");
       }
 
-      // Set empty array to prevent infinite loading
       if (!hasInitialized) {
         setTodos([]);
         setHasInitialized(true);
@@ -207,6 +210,142 @@ export const useTodos = ({
     }
   }, [courseInstanceId, getToken, isSignedIn, isLoaded, showToast, hasInitialized, getCachedTodos, setCachedTodos]);
 
+  // Toggle todo completion with undo support
+  const toggleTodo = useCallback(
+    async (todoId: string) => {
+      // Find the todo to toggle
+      const todoToToggle = todos.find(t => t.todoId === todoId);
+      if (!todoToToggle) return;
+
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("No authentication token");
+
+        // Store original state for undo
+        const originalCompleted = todoToToggle.completed;
+
+        // Optimistic update
+        setTodos((prev) =>
+          prev.map((todo) =>
+            todo.todoId === todoId
+              ? { ...todo, completed: !todo.completed }
+              : todo
+          )
+        );
+        clearCache();
+
+        // Clear any existing undo timeout
+        if (undoTimeoutRef.current) {
+          clearTimeout(undoTimeoutRef.current);
+        }
+
+        // Define undo action
+        const undoAction = async () => {
+          console.log("🔄 UNDO ACTION CALLED for task:", todoId);
+          try {
+            // Clear the timeout since user is undoing
+            if (undoTimeoutRef.current) {
+              clearTimeout(undoTimeoutRef.current);
+              undoTimeoutRef.current = undefined;
+            }
+
+            console.log("Undoing task:", todoId, "from completed to incomplete");
+
+            // Call API first to ensure server state is updated
+            const undoResponse = await toggleTodoCompletion(todoId, token);
+            
+            if (undoResponse.success && undoResponse.data) {
+              console.log("Undo API response:", undoResponse.data);
+              
+              // Clear cache to force fresh data
+              clearCache();
+              
+              // Fetch fresh todos to ensure UI is in sync
+              await fetchTodos(true);
+              
+              showToast?.("Task restored", "info");
+              
+              // Scroll to the restored task after state updates
+              setTimeout(() => {
+                const todoElement = document.querySelector(`[data-todo-id="${todoId}"]`);
+                if (todoElement) {
+                  todoElement.scrollIntoView({ behavior: "smooth", block: "center" });
+                  // Add highlight class for visual feedback
+                  todoElement.classList.add('animate-highlight');
+                } else {
+                  console.warn("Could not find restored todo element:", todoId);
+                }
+              }, 300);
+            } else {
+              throw new Error(undoResponse.error || "Failed to undo task");
+            }
+          } catch (error) {
+            // If undo fails, fetch fresh data
+            console.error("Undo failed:", error);
+            await fetchTodos();
+            showToast?.("Failed to undo action", "error");
+          }
+        };
+
+        // Make the API call
+        const response = await toggleTodoCompletion(todoId, token);
+        
+        if (response.success && response.data) {
+          setTodos((prev) =>
+            prev.map((todo) =>
+              todo.todoId === todoId ? response.data : todo
+            )
+          );
+
+          // Show success toast with undo option only when marking as complete
+          const wasCompleted = !originalCompleted;
+          if (wasCompleted) {
+            // Task was marked complete - show undo option
+            showToast?.(
+              "Task marked as complete",
+              "success",
+              {
+                duration: UNDO_DURATION,
+                undoAction,
+                undoLabel: "Undo",
+                countdown: true,
+              }
+            );
+          } else {
+            // Task was marked incomplete - no undo option
+            showToast?.(
+              "Task marked as incomplete",
+              "success"
+            );
+          }
+
+          // Set timeout to clear undo option only if we showed undo
+          if (wasCompleted) {
+            undoTimeoutRef.current = setTimeout(() => {
+              undoTimeoutRef.current = undefined;
+            }, UNDO_DURATION);
+          }
+        } else {
+          // Revert on error
+          setTodos((prev) =>
+            prev.map((todo) =>
+              todo.todoId === todoId
+                ? { ...todo, completed: originalCompleted }
+                : todo
+            )
+          );
+          throw new Error(response.error || "Failed to update task");
+        }
+      } catch (err: any) {
+        console.error("Error toggling todo:", err);
+        const errorMessage = err.message || "Failed to update task";
+        showToast?.(errorMessage, "error");
+        throw err;
+      }
+    },
+    [getToken, showToast, clearCache, todos, fetchTodos]
+  );
+
   // Create todo with optimistic update
   const createTodo = useCallback(
     async (data: CreateTodoData) => {
@@ -214,12 +353,11 @@ export const useTodos = ({
         const token = await getToken();
         if (!token) throw new Error("No authentication token");
 
-        // Optimistically add todo with temporary ID
         const tempId = `temp-${Date.now()}`;
         const tempTodo: TodoData = {
           ...data,
           todoId: tempId,
-          userId: "", // Will be filled by server
+          userId: "",
           completed: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -230,7 +368,6 @@ export const useTodos = ({
 
         const response = await createTodoApi(data, token);
         if (response.success && response.data) {
-          // Replace temp todo with real one
           setTodos((prev) =>
             prev.map((todo) =>
               todo.todoId === tempId ? response.data : todo
@@ -238,7 +375,6 @@ export const useTodos = ({
           );
           showToast?.("Task created successfully", "success");
         } else {
-          // Remove temp todo on error
           setTodos((prev) => prev.filter((todo) => todo.todoId !== tempId));
           throw new Error(response.error || "Failed to create task");
         }
@@ -261,7 +397,6 @@ export const useTodos = ({
         const token = await getToken();
         if (!token) throw new Error("No authentication token");
 
-        // Optimistic update
         setTodos((prev) =>
           prev.map((todo) =>
             todo.todoId === todoId ? { ...todo, ...data } : todo
@@ -278,7 +413,6 @@ export const useTodos = ({
           );
           showToast?.("Task updated successfully", "success");
         } else {
-          // Revert on error
           if (originalTodo) {
             setTodos((prev) =>
               prev.map((todo) =>
@@ -289,7 +423,6 @@ export const useTodos = ({
           throw new Error(response.error || "Failed to update task");
         }
       } catch (err: any) {
-        // Revert optimistic update
         if (originalTodo) {
           setTodos((prev) =>
             prev.map((todo) =>
@@ -306,55 +439,11 @@ export const useTodos = ({
     [getToken, showToast, todos, clearCache]
   );
 
-  // Toggle todo completion with optimistic update
-  const toggleTodo = useCallback(
-    async (todoId: string) => {
-      try {
-        const token = await getToken();
-        if (!token) throw new Error("No authentication token");
-
-        // Optimistic update
-        setTodos((prev) =>
-          prev.map((todo) =>
-            todo.todoId === todoId
-              ? { ...todo, completed: !todo.completed }
-              : todo
-          )
-        );
-        clearCache();
-
-        const response = await toggleTodoCompletion(todoId, token);
-        if (response.success && response.data) {
-          setTodos((prev) =>
-            prev.map((todo) =>
-              todo.todoId === todoId ? response.data : todo
-            )
-          );
-        } else {
-          // Revert on error
-          setTodos((prev) =>
-            prev.map((todo) =>
-              todo.todoId === todoId
-                ? { ...todo, completed: !todo.completed }
-                : todo
-            )
-          );
-          throw new Error(response.error || "Failed to update task");
-        }
-      } catch (err: any) {
-        console.error("Error toggling todo:", err);
-        const errorMessage = err.message || "Failed to update task";
-        showToast?.(errorMessage, "error");
-        throw err;
-      }
-    },
-    [getToken, showToast, clearCache]
-  );
-
-  // Delete todo with optimistic update
+  // Delete todo with undo support
   const deleteTodo = useCallback(
     async (todoId: string) => {
       const todoToDelete = todos.find((t) => t.todoId === todoId);
+      if (!todoToDelete) return;
       
       try {
         const token = await getToken();
@@ -364,18 +453,50 @@ export const useTodos = ({
         setTodos((prev) => prev.filter((todo) => todo.todoId !== todoId));
         clearCache();
 
+        // Define undo action
+        const undoAction = async () => {
+          try {
+            // Re-add the todo optimistically
+            setTodos((prev) => [...prev, todoToDelete].sort((a, b) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            ));
+
+            // Create it again on the server
+            await createTodoApi({
+              courseInstanceId: todoToDelete.courseInstanceId,
+              title: todoToDelete.title,
+              description: todoToDelete.description,
+              dueDate: todoToDelete.dueDate,
+              category: todoToDelete.category,
+              tags: todoToDelete.tags,
+            }, token);
+
+            clearCache();
+            await fetchTodos(); // Refresh to get the new ID
+            showToast?.("Task restored", "info");
+          } catch (error) {
+            await fetchTodos();
+            showToast?.("Failed to restore task", "error");
+          }
+        };
+
         const response = await deleteTodoApi(todoId, token);
         if (response.success) {
-          showToast?.("Task deleted successfully", "success");
+          showToast?.(
+            "Task deleted",
+            "success",
+            {
+              duration: UNDO_DURATION,
+              undoAction,
+              undoLabel: "Undo",
+              countdown: true,
+            }
+          );
         } else {
-          // Revert on error
-          if (todoToDelete) {
-            setTodos((prev) => [...prev, todoToDelete]);
-          }
+          setTodos((prev) => [...prev, todoToDelete]);
           throw new Error(response.error || "Failed to delete task");
         }
       } catch (err: any) {
-        // Revert optimistic update
         if (todoToDelete) {
           setTodos((prev) => [...prev, todoToDelete]);
         }
@@ -385,36 +506,63 @@ export const useTodos = ({
         throw err;
       }
     },
-    [getToken, showToast, todos, clearCache]
+    [getToken, showToast, todos, clearCache, fetchTodos]
   );
 
-  // Refresh todos with loading state
+  // Refresh todos
   const refreshTodos = useCallback(async () => {
-    retryCount.current = 0; // Reset retry count
-    clearCache(); // Clear cache to force fresh fetch
+    retryCount.current = 0;
+    clearCache();
     await fetchTodos();
   }, [fetchTodos, clearCache]);
 
-  // Initial fetch with cleanup
+  // Initial fetch and polling
   useEffect(() => {
     isUnmounted.current = false;
     fetchTodos();
 
-    // Cleanup on unmount
+    // Set up polling for auto-refresh
+    const pollInterval = setInterval(() => {
+      if (!isUnmounted.current && document.visibilityState === 'visible') {
+        // Only poll if the page is visible and there's no ongoing loading
+        if (!loading) {
+          fetchTodos(true); // Silent refresh (isRetry = true to skip cache)
+        }
+      }
+    }, POLL_INTERVAL);
+
+    // Handle visibility change to refresh when page becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !isUnmounted.current) {
+        // Refresh when page becomes visible after being hidden
+        const timeSinceLastFetch = Date.now() - (todosCache.get(courseInstanceId)?.timestamp || 0);
+        if (timeSinceLastFetch > POLL_INTERVAL) {
+          fetchTodos(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       isUnmounted.current = true;
+      clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (authTimeoutRef.current) {
         clearTimeout(authTimeoutRef.current);
       }
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
     };
-  }, [fetchTodos]);
+  }, [fetchTodos, courseInstanceId, loading]);
 
   return {
     todos,
-    loading: loading && !hasInitialized, // Only show loading on first load
+    loading: loading && !hasInitialized,
     error,
     createTodo,
     updateTodo,

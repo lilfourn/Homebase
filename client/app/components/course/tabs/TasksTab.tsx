@@ -1,29 +1,25 @@
 "use client";
 
-import { useTodos } from "@/app/hooks/useTodos.optimized";
 import { TasksTabProps, TodoData } from "@/app/types/course.types";
 import { AlertCircle, Plus, RefreshCw, WifiOff } from "lucide-react";
 import { useState } from "react";
 import { TodoForm } from "../todos/TodoForm";
 import { TodoList } from "../todos/TodoList";
 
-export const TasksTab = ({ course, showToast }: TasksTabProps) => {
+export const TasksTab = ({ 
+  course, 
+  todos,
+  loading,
+  error,
+  createTodo,
+  updateTodo,
+  toggleTodo,
+  deleteTodo,
+  refreshTodos
+}: TasksTabProps) => {
+  
   const [showForm, setShowForm] = useState(false);
   const [editingTodo, setEditingTodo] = useState<TodoData | null>(null);
-
-  const {
-    todos,
-    loading,
-    error,
-    createTodo,
-    updateTodo,
-    toggleTodo,
-    deleteTodo,
-    refreshTodos,
-  } = useTodos({
-    courseInstanceId: course.courseInstanceId,
-    showToast,
-  });
 
   const handleCreateTodo = async (data: any) => {
     try {

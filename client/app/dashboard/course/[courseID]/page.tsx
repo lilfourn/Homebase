@@ -13,7 +13,9 @@ import { useGooglePicker } from "@/app/hooks/useGooglePicker";
 import { useSyllabusManagement } from "@/app/hooks/useSyllabusManagement";
 import { useSyllabusProcessing } from "@/app/hooks/useSyllabusProcessing";
 import { useToast } from "@/app/hooks/useToast";
-import { useTodos } from "@/app/hooks/useTodos.optimized";
+import { useTodos } from "@/app/hooks/useTodos.undo";
+import { useToastWithUndo } from "@/app/hooks/useToastWithUndo";
+import { ToastContainer } from "@/app/components/ui/ToastContainer";
 
 // Components
 import {
@@ -41,14 +43,24 @@ export default function CoursePage() {
 
   // Custom hooks
   const { toast, showToast, clearToast } = useToast();
+  const { toasts: undoToasts, showToast: showUndoToast, removeToast: removeUndoToast } = useToastWithUndo();
 
   const { course, userData, loading, error, isLoadingUserData } =
     useCourseData(courseInstanceId);
     
-  // Import todos data for urgency alert
-  const { todos } = useTodos({
+  // Single instance of useTodos for both urgency alert and tasks tab
+  const {
+    todos,
+    loading: todosLoading,
+    error: todosError,
+    createTodo,
+    updateTodo,
+    toggleTodo,
+    deleteTodo,
+    refreshTodos,
+  } = useTodos({
     courseInstanceId,
-    showToast,
+    showToast: showUndoToast,
   });
 
   const {
@@ -153,7 +165,19 @@ export default function CoursePage() {
           </div>
         );
       case "tasks":
-        return <TasksTab course={course} showToast={showToast} />;
+        return (
+          <TasksTab 
+            course={course}
+            todos={todos}
+            loading={todosLoading}
+            error={todosError}
+            createTodo={createTodo}
+            updateTodo={updateTodo}
+            toggleTodo={toggleTodo}
+            deleteTodo={deleteTodo}
+            refreshTodos={refreshTodos}
+          />
+        );
       case "library":
         return (
           <LibraryTab
@@ -199,6 +223,9 @@ export default function CoursePage() {
 
       {/* Toast Notification */}
       <ToastNotification toast={toast} onClose={clearToast} />
+      
+      {/* Undo Toast Container */}
+      <ToastContainer toasts={undoToasts} onClose={removeUndoToast} />
     </div>
   );
 }
