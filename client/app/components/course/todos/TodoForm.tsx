@@ -25,10 +25,24 @@ export const TodoForm = ({
 
   // Quick date presets
   const datePresets = [
-    { label: "Today", value: () => moment().endOf('day').format("YYYY-MM-DDTHH:mm") },
-    { label: "Tomorrow", value: () => moment().add(1, 'day').endOf('day').format("YYYY-MM-DDTHH:mm") },
-    { label: "This Week", value: () => moment().endOf('week').format("YYYY-MM-DDTHH:mm") },
-    { label: "Next Week", value: () => moment().add(1, 'week').endOf('week').format("YYYY-MM-DDTHH:mm") },
+    {
+      label: "Today",
+      value: () => moment().endOf("day").format("YYYY-MM-DDTHH:mm"),
+    },
+    {
+      label: "Tomorrow",
+      value: () =>
+        moment().add(1, "day").endOf("day").format("YYYY-MM-DDTHH:mm"),
+    },
+    {
+      label: "This Week",
+      value: () => moment().endOf("week").format("YYYY-MM-DDTHH:mm"),
+    },
+    {
+      label: "Next Week",
+      value: () =>
+        moment().add(1, "week").endOf("week").format("YYYY-MM-DDTHH:mm"),
+    },
   ];
 
   useEffect(() => {
@@ -126,7 +140,12 @@ export const TodoForm = ({
             <button
               key={option.value}
               type="button"
-              onClick={() => setFormData({ ...formData, category: option.value as TodoCategory })}
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  category: option.value as TodoCategory,
+                })
+              }
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                 formData.category === option.value
                   ? `${option.color} ring-2 ring-offset-1 ring-blue-500`
@@ -140,48 +159,64 @@ export const TodoForm = ({
         </div>
       </div>
 
-      {/* Due Date with Presets */}
+      {/* Quick Due Date Presets */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Due Date
         </label>
-        <div className="space-y-2">
-          {/* Quick presets */}
-          <div className="flex flex-wrap gap-2">
-            {datePresets.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => setFormData({ ...formData, dueDate: preset.value() })}
-                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors cursor-pointer"
-                disabled={isLoading}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          {/* Custom date picker */}
-          <div className="relative">
-            <input
-              type="datetime-local"
-              value={formData.dueDate}
-              onChange={(e) =>
-                setFormData({ ...formData, dueDate: e.target.value })
+        {/* Quick presets */}
+        <div className="flex flex-wrap gap-2">
+          {datePresets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() =>
+                setFormData({ ...formData, dueDate: preset.value() })
               }
-              className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors cursor-pointer"
               disabled={isLoading}
-            />
-            <Calendar className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          </div>
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
+        {formData.dueDate && (
+          <p className="mt-2 text-sm text-gray-600">
+            Due: {moment(formData.dueDate).format("MMM D, YYYY h:mm A")}
+          </p>
+        )}
       </div>
 
       {/* Optional fields - collapsible */}
       <details className="border border-gray-200 rounded-lg">
         <summary className="px-4 py-2 cursor-pointer hover:bg-gray-50">
-          <span className="text-sm font-medium text-gray-700">More options</span>
+          <span className="text-sm font-medium text-gray-700">
+            More options
+          </span>
         </summary>
         <div className="p-4 space-y-4 border-t">
+          {/* Custom date and time picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Specific Date & Time
+            </label>
+            <div className="relative">
+              <input
+                type="datetime-local"
+                value={formData.dueDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, dueDate: e.target.value })
+                }
+                className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoading}
+              />
+              <Calendar className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Set a specific deadline with exact time
+            </p>
+          </div>
+
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -9,13 +9,13 @@ import { TabType } from "@/app/types/course.types";
 
 // Hooks
 import { ToastContainer } from "@/app/components/ui/ToastContainer";
-import { useCourseData } from "@/app/hooks/useCourseData";
-import { useGooglePicker } from "@/app/hooks/useGooglePicker";
-import { useSyllabusManagement } from "@/app/hooks/useSyllabusManagement";
-import { useSyllabusProcessing } from "@/app/hooks/useSyllabusProcessing";
-import { useToast } from "@/app/hooks/useToast";
-import { useToastWithUndo } from "@/app/hooks/useToastWithUndo";
-import { useTodos } from "@/app/hooks/useTodos.undo";
+import { useCourseData } from "@/app/hooks/course/useCourseData";
+import { useGooglePicker } from "@/app/hooks/course/useGooglePicker";
+import { useToast } from "@/app/hooks/course/useToast";
+import { useToastWithUndo } from "@/app/hooks/course/useToastWithUndo";
+import { useSyllabusManagement } from "@/app/hooks/syllabus/useSyllabusManagement";
+import { useSyllabusProcessing } from "@/app/hooks/syllabus/useSyllabusProcessing";
+import { useTodos } from "@/app/hooks/todo-list/useTodos.undo";
 
 // Components
 import { addTAManually } from "@/app/api/courses.api";

@@ -12,7 +12,7 @@ import { Separator } from "@/app/components/ui/separator";
 import {
   ParsedSyllabusData,
   useSyllabusProcessing,
-} from "@/app/hooks/useSyllabusProcessing";
+} from "@/app/hooks/syllabus/useSyllabusProcessing";
 import {
   Brain,
   Calendar,

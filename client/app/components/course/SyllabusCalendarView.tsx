@@ -1,6 +1,6 @@
 "use client";
 
-import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
+import { ParsedSyllabusData } from "@/app/hooks/syllabus/useSyllabusProcessing";
 import {
   CalendarIcon,
   ChevronLeft,

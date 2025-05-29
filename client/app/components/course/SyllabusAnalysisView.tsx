@@ -1,14 +1,14 @@
 "use client";
 
-import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
-import { useMatchedTA } from "@/app/hooks/useMatchedTA";
+import { useMatchedTA } from "@/app/hooks/course/useMatchedTA";
+import { ParsedSyllabusData } from "@/app/hooks/syllabus/useSyllabusProcessing";
 import {
   Calendar,
+  Clock,
   FileText,
   GraduationCap,
-  Users,
-  Clock,
   UserCheck,
+  Users,
 } from "lucide-react";
 import moment from "moment";
 import { SyllabusCalendarView } from "./SyllabusCalendarView";
@@ -192,12 +192,14 @@ export const SyllabusAnalysisView: React.FC<SyllabusAnalysisViewProps> = ({
             <CardContent>
               <div className="space-y-3">
                 {parsedData.contacts.map((contact, index) => {
-                  const isMatchedTA = matchResult?.matchedTA && matchResult.matchedTA.email === contact.email;
+                  const isMatchedTA =
+                    matchResult?.matchedTA &&
+                    matchResult.matchedTA.email === contact.email;
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className={`p-3 border rounded-lg ${
-                        isMatchedTA ? 'border-blue-500 bg-blue-50' : ''
+                        isMatchedTA ? "border-blue-500 bg-blue-50" : ""
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -224,7 +226,9 @@ export const SyllabusAnalysisView: React.FC<SyllabusAnalysisViewProps> = ({
                         </p>
                       )}
                       {contact.phone && (
-                        <p className="text-xs text-gray-600">📞 {contact.phone}</p>
+                        <p className="text-xs text-gray-600">
+                          📞 {contact.phone}
+                        </p>
                       )}
                       {contact.officeHours && (
                         <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">

@@ -1,9 +1,9 @@
 import CourseGoogleDriveImporter from "@/app/components/course/files/CourseGoogleDriveImporter.jsx";
 import { Button } from "@/app/components/ui/button";
-import { 
+import {
+  ParsedSyllabusData,
   SyllabusProcessingStatus,
-  ParsedSyllabusData 
-} from "@/app/hooks/useSyllabusProcessing";
+} from "@/app/hooks/syllabus/useSyllabusProcessing";
 import {
   LibraryTabProps as OriginalLibraryTabProps,
   SyllabusData,
@@ -49,7 +49,6 @@ export const LibraryTab = ({
   startSyllabusProcessing,
   reprocessSyllabusAi,
 }: LibraryTabProps) => {
-
   return (
     <div className="space-y-6">
       {/* Display Upload Syllabus button if no syllabus and modal was skipped */}
@@ -74,7 +73,8 @@ export const LibraryTab = ({
                 </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
                   <span>
-                    Uploaded: {new Date(syllabusData.uploadedAt).toLocaleDateString()}
+                    Uploaded:{" "}
+                    {new Date(syllabusData.uploadedAt).toLocaleDateString()}
                   </span>
                   {processingStatus?.isProcessed && (
                     <span className="flex items-center gap-1 text-green-600">
@@ -106,7 +106,7 @@ export const LibraryTab = ({
                   </a>
                 </Button>
               )}
-              
+
               <Button
                 variant="outline"
                 size="sm"
@@ -116,7 +116,6 @@ export const LibraryTab = ({
                 <Upload className="h-4 w-4 mr-1" />
                 Upload New
               </Button>
-
 
               {!processingStatus?.isProcessed && !isProcessingAi && (
                 <Button
@@ -142,11 +141,7 @@ export const LibraryTab = ({
               )}
 
               {isProcessingAi && (
-                <Button
-                  size="sm"
-                  disabled
-                  className="cursor-not-allowed"
-                >
+                <Button size="sm" disabled className="cursor-not-allowed">
                   <Loader2 className="h-4 w-4 animate-spin mr-1" />
                   Analyzing...
                 </Button>

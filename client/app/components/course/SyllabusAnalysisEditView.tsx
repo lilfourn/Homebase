@@ -1,8 +1,8 @@
 "use client";
 
 import { updateSyllabusParsedData } from "@/app/api/courses.api";
-import { useMatchedTA } from "@/app/hooks/useMatchedTA";
-import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
+import { useMatchedTA } from "@/app/hooks/course/useMatchedTA";
+import { ParsedSyllabusData } from "@/app/hooks/syllabus/useSyllabusProcessing";
 import { useAuth } from "@clerk/nextjs";
 import {
   Calendar,
