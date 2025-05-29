@@ -1,7 +1,7 @@
-import { useAuth } from "@clerk/nextjs";
-import { useCallback, useEffect, useState } from "react";
 import { getMatchedTA } from "@/app/api/courses.api";
 import { useTASetup } from "@/app/context/TASetupContext";
+import { useAuth } from "@clerk/nextjs";
+import { useCallback, useEffect, useState } from "react";
 
 export interface MatchedTAResult {
   matchedTA: {
@@ -29,11 +29,15 @@ export interface MatchedTAResult {
     hasLastName: boolean;
     hasStudentId: boolean;
   };
+  taSetupStatus?: string | null;
 }
 
-export function useMatchedTA(courseInstanceId: string | null, courseName?: string) {
+export function useMatchedTA(
+  courseInstanceId: string | null,
+  courseName?: string
+) {
   const { getToken } = useAuth();
-  const { openTASetupModal, isSkipped, isMarkedNoTA } = useTASetup();
+  const { openTASetupModal } = useTASetup();
   const [matchResult, setMatchResult] = useState<MatchedTAResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,20 +58,32 @@ export function useMatchedTA(courseInstanceId: string | null, courseName?: strin
       }
 
       const result = await getMatchedTA(courseInstanceId, token);
-      
+
       // Ensure we have a valid result structure
-      if (result && typeof result === 'object') {
+      if (result && typeof result === "object") {
         setMatchResult(result);
-        
+
         // Check if we should show the TA setup modal
-        if (result.allTAs.length === 0 && !isSkipped(courseInstanceId) && !isMarkedNoTA(courseInstanceId)) {
+        // Only show if:
+        // 1. There are no TAs
+        // 2. The taSetupStatus is null or 'pending' (not yet addressed)
+        const shouldShowModal =
+          result.allTAs.length === 0 &&
+          (!result.taSetupStatus || result.taSetupStatus === "pending");
+
+        if (shouldShowModal) {
           openTASetupModal(courseInstanceId, courseName);
         }
-        
+
         // Check if user needs to provide lastName for TA matching
         // This happens when there are TAs with assignment rules but user has no lastName
-        const hasAssignmentRules = result.allTAs.some((ta: any) => ta.assignmentRule);
-        const needsName = result.allTAs.length > 0 && hasAssignmentRules && !result.userInfo.hasLastName;
+        const hasAssignmentRules = result.allTAs.some(
+          (ta: any) => ta.assignmentRule
+        );
+        const needsName =
+          result.allTAs.length > 0 &&
+          hasAssignmentRules &&
+          !result.userInfo.hasLastName;
         setNeedsLastName(needsName);
       } else {
         console.warn("Invalid matched TA result:", result);
@@ -77,17 +93,18 @@ export function useMatchedTA(courseInstanceId: string | null, courseName?: strin
           matchCriteria: {
             hasLastName: false,
             hasStudentId: false,
-            matchedBy: null
+            matchedBy: null,
           },
           userInfo: {
             hasLastName: false,
-            hasStudentId: false
-          }
+            hasStudentId: false,
+          },
+          taSetupStatus: null,
         });
       }
     } catch (err: any) {
       console.error("Error fetching matched TA:", err);
-      
+
       // Set a default empty result when there's an error
       setMatchResult({
         matchedTA: null,
@@ -95,14 +112,15 @@ export function useMatchedTA(courseInstanceId: string | null, courseName?: strin
         matchCriteria: {
           hasLastName: false,
           hasStudentId: false,
-          matchedBy: null
+          matchedBy: null,
         },
         userInfo: {
           hasLastName: false,
-          hasStudentId: false
-        }
+          hasStudentId: false,
+        },
+        taSetupStatus: null,
       });
-      
+
       // Only show error for actual errors, not missing data
       if (err.response?.status === 500 || err.response?.status === 401) {
         if (err.response?.data?.message) {
@@ -123,7 +141,7 @@ export function useMatchedTA(courseInstanceId: string | null, courseName?: strin
     } finally {
       setIsLoading(false);
     }
-  }, [courseInstanceId, courseName, getToken, openTASetupModal, isSkipped, isMarkedNoTA]);
+  }, [courseInstanceId, courseName, getToken, openTASetupModal]);
 
   useEffect(() => {
     fetchMatchedTA();

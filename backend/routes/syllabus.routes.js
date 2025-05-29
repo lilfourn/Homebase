@@ -65,4 +65,11 @@ router.post(
   syllabusController.addTAManually
 );
 
+// Route to update TA setup status
+router.put(
+  "/:courseInstanceId/ta-setup-status",
+  requireAuth(),
+  syllabusController.updateTASetupStatus
+);
+
 module.exports = router;

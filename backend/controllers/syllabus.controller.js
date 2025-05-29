@@ -394,8 +394,8 @@ exports.addTAManually = async (req, res) => {
     }
 
     if (!taData || !taData.name || !taData.email) {
-      return res.status(400).json({ 
-        message: "TA name and email are required" 
+      return res.status(400).json({
+        message: "TA name and email are required",
       });
     }
 
@@ -438,7 +438,10 @@ exports.addTAManually = async (req, res) => {
     syllabus.parsedData.contacts.push(newTA);
     syllabus.parsedData.manuallyEdited = true;
     syllabus.parsedData.lastEditedAt = new Date();
-    
+
+    // Mark TA setup as completed since a TA was added
+    syllabus.taSetupStatus = "completed";
+
     await syllabus.save();
 
     res.status(200).json({
@@ -486,9 +489,9 @@ exports.getMatchedTA = async (req, res) => {
     }
 
     if (!syllabus.isProcessed || !syllabus.parsedData) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Syllabus has not been processed yet",
-        needsProcessing: true
+        needsProcessing: true,
       });
     }
 
@@ -518,11 +521,59 @@ exports.getMatchedTA = async (req, res) => {
         hasLastName: !!user.lastName,
         hasStudentId: !!user.studentId,
       },
+      taSetupStatus: syllabus.taSetupStatus,
     });
   } catch (error) {
     console.error("Error getting matched TA:", error);
     res.status(500).json({
       message: "Error getting matched TA",
+      error: error.message || "Unknown error",
+    });
+  }
+};
+
+// Update TA setup status
+exports.updateTASetupStatus = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const { status } = req.body;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Validate status
+    const validStatuses = ["pending", "skipped", "no_ta", "completed"];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message:
+          "Invalid status. Must be one of: pending, skipped, no_ta, completed",
+      });
+    }
+
+    // Find the syllabus
+    const syllabus = await Syllabus.findOne({
+      courseInstanceId,
+      userId: auth.userId,
+    });
+
+    if (!syllabus) {
+      return res.status(404).json({ message: "Syllabus not found" });
+    }
+
+    // Update the TA setup status
+    syllabus.taSetupStatus = status;
+    await syllabus.save();
+
+    res.status(200).json({
+      message: "TA setup status updated successfully",
+      taSetupStatus: status,
+    });
+  } catch (error) {
+    console.error("Error updating TA setup status:", error);
+    res.status(500).json({
+      message: "Error updating TA setup status",
       error: error.message || "Unknown error",
     });
   }

@@ -109,6 +109,14 @@ const SyllabusSchema = mongoose.Schema(
       type: String,
       required: false,
     },
+
+    // TA Setup tracking
+    taSetupStatus: {
+      type: String,
+      enum: ["pending", "skipped", "no_ta", "completed", null],
+      default: null,
+      required: false,
+    },
   },
   {
     timestamps: true,

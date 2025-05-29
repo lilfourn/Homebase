@@ -28,6 +28,7 @@ export interface UserData {
   googleDrive?: {
     connected: boolean;
   };
+  fullName?: string;
 }
 
 // Tab types
@@ -105,7 +106,14 @@ export interface UseToastReturn {
 }
 
 // Todo types
-export type TodoCategory = "task" | "assignment" | "exam" | "final" | "project" | "quiz" | "other";
+export type TodoCategory =
+  | "task"
+  | "assignment"
+  | "exam"
+  | "final"
+  | "project"
+  | "quiz"
+  | "other";
 export type TodoUrgency = "overdue" | "urgent" | "dueSoon" | "normal" | null;
 
 export interface TodoData {

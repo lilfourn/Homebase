@@ -8,16 +8,18 @@ import { useState } from "react";
 import { TabType } from "@/app/types/course.types";
 
 // Hooks
+import { ToastContainer } from "@/app/components/ui/ToastContainer";
 import { useCourseData } from "@/app/hooks/useCourseData";
 import { useGooglePicker } from "@/app/hooks/useGooglePicker";
 import { useSyllabusManagement } from "@/app/hooks/useSyllabusManagement";
 import { useSyllabusProcessing } from "@/app/hooks/useSyllabusProcessing";
 import { useToast } from "@/app/hooks/useToast";
-import { useTodos } from "@/app/hooks/useTodos.undo";
 import { useToastWithUndo } from "@/app/hooks/useToastWithUndo";
-import { ToastContainer } from "@/app/components/ui/ToastContainer";
+import { useTodos } from "@/app/hooks/useTodos.undo";
 
 // Components
+import { addTAManually } from "@/app/api/courses.api";
+import { updateUserNameInfo } from "@/app/api/users.api";
 import {
   CourseHeader,
   ErrorState,
@@ -30,13 +32,11 @@ import {
   TabNavigation,
   ToastNotification,
 } from "@/app/components/course";
-import { TasksTab } from "@/app/components/course/tabs/TasksTab";
-import { TodoUrgencyAlert } from "@/app/components/course/todos/TodoUrgencyAlert";
-import { TASetupModal } from "@/app/components/course/TASetupModal";
 import { LastNameModal } from "@/app/components/course/LastNameModal";
+import { TasksTab } from "@/app/components/course/tabs/TasksTab";
+import { TASetupModal } from "@/app/components/course/TASetupModal";
+import { TodoUrgencyAlert } from "@/app/components/course/todos/TodoUrgencyAlert";
 import { useTASetup } from "@/app/context/TASetupContext";
-import { addTAManually } from "@/app/api/courses.api";
-import { updateUserNameInfo } from "@/app/api/users.api";
 import { useUser } from "@clerk/nextjs";
 
 export default function CoursePage() {
@@ -51,19 +51,23 @@ export default function CoursePage() {
 
   // Custom hooks
   const { toast, showToast, clearToast } = useToast();
-  const { toasts: undoToasts, showToast: showUndoToast, removeToast: removeUndoToast } = useToastWithUndo();
-  const { 
-    showTASetupModal, 
-    courseIdForSetup, 
+  const {
+    toasts: undoToasts,
+    showToast: showUndoToast,
+    removeToast: removeUndoToast,
+  } = useToastWithUndo();
+  const {
+    showTASetupModal,
+    courseIdForSetup,
     courseNameForSetup,
-    closeTASetupModal, 
-    skipTASetup, 
-    markAsNoTA 
+    closeTASetupModal,
+    skipTASetup,
+    markAsNoTA,
   } = useTASetup();
 
   const { course, userData, loading, error, isLoadingUserData } =
     useCourseData(courseInstanceId);
-    
+
   // Single instance of useTodos for both urgency alert and tasks tab
   const {
     todos,
@@ -144,7 +148,7 @@ export default function CoursePage() {
       await addTAManually(courseIdForSetup || courseInstanceId, taData, token);
       showToast("TA added successfully", "success");
       closeTASetupModal();
-      
+
       // Refresh the parsed data to show the new TA
       if (loadAiParsedData) {
         loadAiParsedData();
@@ -169,14 +173,17 @@ export default function CoursePage() {
   };
 
   // Last name update handler
-  const handleLastNameSubmit = async (data: { lastName: string; studentId?: string }) => {
+  const handleLastNameSubmit = async (data: {
+    lastName: string;
+    studentId?: string;
+  }) => {
     if (!clerkUser?.id) return;
 
     try {
       await updateUserNameInfo(clerkUser.id, data);
       showToast("Profile updated successfully", "success");
       setShowLastNameModal(false);
-      
+
       // Refresh the matched TA data
       if (loadAiParsedData) {
         loadAiParsedData();
@@ -213,11 +220,11 @@ export default function CoursePage() {
         return (
           <div className="space-y-6">
             {/* Urgency Alert at the top */}
-            <TodoUrgencyAlert 
-              todos={todos} 
-              courseInstanceId={courseInstanceId} 
+            <TodoUrgencyAlert
+              todos={todos}
+              courseInstanceId={courseInstanceId}
             />
-            
+
             <OverviewTab
               course={course}
               hasSyllabus={hasSyllabus}
@@ -225,9 +232,10 @@ export default function CoursePage() {
               onShowSyllabusModal={handleShowSyllabusModal}
             />
             {hasSyllabus && processingStatus?.isProcessed && parsedData && (
-              <SyllabusAnalysisEditView 
+              <SyllabusAnalysisEditView
                 parsedData={parsedData}
                 courseInstanceId={courseInstanceId}
+                courseName={course?.name}
                 onDataUpdate={(updatedData) => {
                   // Update the local state with new data
                   loadAiParsedData();
@@ -240,7 +248,7 @@ export default function CoursePage() {
         );
       case "tasks":
         return (
-          <TasksTab 
+          <TasksTab
             course={course}
             todos={todos}
             loading={todosLoading}
@@ -297,7 +305,7 @@ export default function CoursePage() {
 
       {/* Toast Notification */}
       <ToastNotification toast={toast} onClose={clearToast} />
-      
+
       {/* Undo Toast Container */}
       <ToastContainer toasts={undoToasts} onClose={removeUndoToast} />
 
@@ -308,7 +316,7 @@ export default function CoursePage() {
         onAddTA={handleAddTA}
         onSkip={handleSkipTA}
         onNoTA={handleNoTA}
-        courseName={courseNameForSetup || course?.courseName}
+        courseName={courseNameForSetup || course?.name}
       />
 
       {/* Last Name Modal */}

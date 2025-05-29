@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import { updateTASetupStatus } from "@/app/api/courses.api";
+import { useAuth } from "@clerk/nextjs";
+import React, { createContext, useCallback, useContext, useState } from "react";
 
 interface TASetupContextType {
   showTASetupModal: boolean;
@@ -10,28 +12,26 @@ interface TASetupContextType {
   closeTASetupModal: () => void;
   skipTASetup: (courseId: string) => void;
   markAsNoTA: (courseId: string) => void;
-  isSkipped: (courseId: string) => boolean;
-  isMarkedNoTA: (courseId: string) => boolean;
 }
 
 const TASetupContext = createContext<TASetupContextType | undefined>(undefined);
 
 export function TASetupProvider({ children }: { children: React.ReactNode }) {
+  const { getToken } = useAuth();
   const [showTASetupModal, setShowTASetupModal] = useState(false);
   const [courseIdForSetup, setCourseIdForSetup] = useState<string | null>(null);
-  const [courseNameForSetup, setCourseNameForSetup] = useState<string | null>(null);
-  const [skippedCourses, setSkippedCourses] = useState<Set<string>>(new Set());
-  const [noTACourses, setNoTACourses] = useState<Set<string>>(new Set());
+  const [courseNameForSetup, setCourseNameForSetup] = useState<string | null>(
+    null
+  );
 
-  const openTASetupModal = useCallback((courseId: string, courseName?: string) => {
-    // Don't show modal if already skipped or marked as no TA
-    if (skippedCourses.has(courseId) || noTACourses.has(courseId)) {
-      return;
-    }
-    setCourseIdForSetup(courseId);
-    setCourseNameForSetup(courseName || null);
-    setShowTASetupModal(true);
-  }, [skippedCourses, noTACourses]);
+  const openTASetupModal = useCallback(
+    (courseId: string, courseName?: string) => {
+      setCourseIdForSetup(courseId);
+      setCourseNameForSetup(courseName || null);
+      setShowTASetupModal(true);
+    },
+    []
+  );
 
   const closeTASetupModal = useCallback(() => {
     setShowTASetupModal(false);
@@ -39,23 +39,35 @@ export function TASetupProvider({ children }: { children: React.ReactNode }) {
     setCourseNameForSetup(null);
   }, []);
 
-  const skipTASetup = useCallback((courseId: string) => {
-    setSkippedCourses((prev) => new Set(prev).add(courseId));
-    closeTASetupModal();
-  }, [closeTASetupModal]);
+  const skipTASetup = useCallback(
+    async (courseId: string) => {
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("No authentication token");
 
-  const markAsNoTA = useCallback((courseId: string) => {
-    setNoTACourses((prev) => new Set(prev).add(courseId));
-    closeTASetupModal();
-  }, [closeTASetupModal]);
+        await updateTASetupStatus(courseId, "skipped", token);
+        closeTASetupModal();
+      } catch (error) {
+        console.error("Error skipping TA setup:", error);
+      }
+    },
+    [closeTASetupModal, getToken]
+  );
 
-  const isSkipped = useCallback((courseId: string) => {
-    return skippedCourses.has(courseId);
-  }, [skippedCourses]);
+  const markAsNoTA = useCallback(
+    async (courseId: string) => {
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("No authentication token");
 
-  const isMarkedNoTA = useCallback((courseId: string) => {
-    return noTACourses.has(courseId);
-  }, [noTACourses]);
+        await updateTASetupStatus(courseId, "no_ta", token);
+        closeTASetupModal();
+      } catch (error) {
+        console.error("Error marking as no TA:", error);
+      }
+    },
+    [closeTASetupModal, getToken]
+  );
 
   return (
     <TASetupContext.Provider
@@ -67,8 +79,6 @@ export function TASetupProvider({ children }: { children: React.ReactNode }) {
         closeTASetupModal,
         skipTASetup,
         markAsNoTA,
-        isSkipped,
-        isMarkedNoTA,
       }}
     >
       {children}

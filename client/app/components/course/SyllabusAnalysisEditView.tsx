@@ -1,8 +1,8 @@
 "use client";
 
 import { updateSyllabusParsedData } from "@/app/api/courses.api";
-import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
 import { useMatchedTA } from "@/app/hooks/useMatchedTA";
+import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
 import { useAuth } from "@clerk/nextjs";
 import {
   Calendar,
@@ -27,6 +27,7 @@ import { SyllabusDataHelper } from "./ui/SyllabusDataHelper";
 interface SyllabusAnalysisEditViewProps {
   parsedData: ParsedSyllabusData;
   courseInstanceId: string;
+  courseName?: string;
   onDataUpdate?: (updatedData: ParsedSyllabusData) => void;
   showToast?: (message: string, type: "success" | "error") => void;
   onNeedsLastName?: () => void;
@@ -88,9 +89,19 @@ const Badge: React.FC<{
 
 export const SyllabusAnalysisEditView: React.FC<
   SyllabusAnalysisEditViewProps
-> = ({ parsedData, courseInstanceId, onDataUpdate, showToast, onNeedsLastName }) => {
+> = ({
+  parsedData,
+  courseInstanceId,
+  courseName,
+  onDataUpdate,
+  showToast,
+  onNeedsLastName,
+}) => {
   const { getToken } = useAuth();
-  const { matchResult, needsLastName } = useMatchedTA(courseInstanceId);  // TODO: Add course name
+  const { matchResult, needsLastName } = useMatchedTA(
+    courseInstanceId,
+    courseName
+  );
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedData, setEditedData] = useState<ParsedSyllabusData>(parsedData);
@@ -289,9 +300,10 @@ export const SyllabusAnalysisEditView: React.FC<
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.keys(editedData.gradingBreakdown).length === 0 && !isEditMode && (
-                <SyllabusDataHelper hasData={false} dataType="grading" />
-              )}
+              {Object.keys(editedData.gradingBreakdown).length === 0 &&
+                !isEditMode && (
+                  <SyllabusDataHelper hasData={false} dataType="grading" />
+                )}
               {Object.entries(editedData.gradingBreakdown).map(
                 ([category, percentage]) => (
                   <div
@@ -643,50 +655,54 @@ export const SyllabusAnalysisEditView: React.FC<
                         Remove
                       </button>
                     </div>
-                  ) : (() => {
-                    const isMatchedTA = matchResult?.matchedTA && matchResult.matchedTA.email === contact.email;
-                    return (
-                      <div className={isMatchedTA ? 'relative' : ''}>
-                        {isMatchedTA && (
-                          <div className="absolute -top-2 -right-2">
-                            <UserCheck className="w-4 h-4 text-blue-600" />
-                          </div>
-                        )}
-                        <h5 className="font-medium text-sm text-gray-900">
-                          {contact.name}
+                  ) : (
+                    (() => {
+                      const isMatchedTA =
+                        matchResult?.matchedTA &&
+                        matchResult.matchedTA.email === contact.email;
+                      return (
+                        <div className={isMatchedTA ? "relative" : ""}>
                           {isMatchedTA && (
-                            <span className="ml-2 text-blue-600 text-xs font-normal">
-                              (Your TA)
-                            </span>
+                            <div className="absolute -top-2 -right-2">
+                              <UserCheck className="w-4 h-4 text-blue-600" />
+                            </div>
                           )}
-                        </h5>
-                        <Badge variant="secondary" className="text-xs mt-1">
-                          {contact.role}
-                        </Badge>
-                        {contact.email && (
-                          <p className="text-xs text-gray-600 mt-1">
-                            📧 {contact.email}
-                          </p>
-                        )}
-                        {contact.phone && (
-                          <p className="text-xs text-gray-600">
-                            📞 {contact.phone}
-                          </p>
-                        )}
-                        {contact.officeHours && (
-                          <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {contact.officeHours}
-                          </p>
-                        )}
-                        {contact.assignmentRule && (
-                          <p className="text-xs text-gray-500 mt-1 italic">
-                            Assignment: {contact.assignmentRule}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
+                          <h5 className="font-medium text-sm text-gray-900">
+                            {contact.name}
+                            {isMatchedTA && (
+                              <span className="ml-2 text-blue-600 text-xs font-normal">
+                                (Your TA)
+                              </span>
+                            )}
+                          </h5>
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            {contact.role}
+                          </Badge>
+                          {contact.email && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              📧 {contact.email}
+                            </p>
+                          )}
+                          {contact.phone && (
+                            <p className="text-xs text-gray-600">
+                              📞 {contact.phone}
+                            </p>
+                          )}
+                          {contact.officeHours && (
+                            <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {contact.officeHours}
+                            </p>
+                          )}
+                          {contact.assignmentRule && (
+                            <p className="text-xs text-gray-500 mt-1 italic">
+                              Assignment: {contact.assignmentRule}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
                 </div>
               ))}
             </div>

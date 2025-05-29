@@ -266,3 +266,28 @@ export const addTAManually = async (courseInstanceId, taData, authToken) => {
     throw error.response?.data || error;
   }
 };
+
+export const updateTASetupStatus = async (
+  courseInstanceId,
+  status,
+  authToken
+) => {
+  try {
+    const response = await axiosInstance.put(
+      `/api/syllabus/${courseInstanceId}/ta-setup-status`,
+      { status },
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error updating TA setup status:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};
