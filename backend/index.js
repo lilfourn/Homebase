@@ -2,6 +2,7 @@ const express = require("express");
 require("dotenv").config();
 const mongoose = require("mongoose");
 const cors = require("cors");
+const compression = require("compression");
 const Course = require("./models/course.model");
 const User = require("./models/users.model");
 const Syllabus = require("./models/syllabus.model");
@@ -14,9 +15,28 @@ const syllabusRoutes = require("./routes/syllabus.routes");
 const todoRoutes = require("./routes/todo.route");
 const app = express();
 
+// Request timeout middleware
+const requestTimeout = (timeout = 30000) => (req, res, next) => {
+  const timer = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(408).json({ 
+        success: false, 
+        error: "Request timeout",
+        message: "The request took too long to process" 
+      });
+    }
+  }, timeout);
+
+  res.on("finish", () => clearTimeout(timer));
+  res.on("close", () => clearTimeout(timer));
+  next();
+};
+
 // Middleware config
-app.use(express.json()); // Allows us to send information in json
-app.use(express.urlencoded({ extended: false })); // Allows to send form data
+app.use(compression()); // Enable gzip compression
+app.use(requestTimeout(30000)); // 30 second global timeout
+app.use(express.json({ limit: "10mb" })); // Allows us to send information in json
+app.use(express.urlencoded({ extended: false, limit: "10mb" })); // Allows to send form data
 app.use(
   cors({
     origin: [
@@ -29,6 +49,18 @@ app.use(
 
 // Add Clerk middleware here
 app.use(clerkMiddleware());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 5000) {
+      console.warn(`Slow request: ${req.method} ${req.path} took ${duration}ms`);
+    }
+  });
+  next();
+});
 
 // routes
 app.use("/api/courses", courseRoute);
@@ -172,10 +204,19 @@ app.post("/sync/users", async (req, res) => {
   }
 });
 
+// MongoDB connection with optimized settings
+const mongooseOptions = {
+  maxPoolSize: 10, // Increase connection pool
+  minPoolSize: 2,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  family: 4, // Use IPv4, skip trying IPv6
+};
+
 mongoose
-  .connect(process.env.MONGO_DB)
+  .connect(process.env.MONGO_DB, mongooseOptions)
   .then(async () => {
-    console.log("Connected to database!");
+    console.log("Connected to database with optimized settings!");
 
     // Ensure indexes are created
     try {

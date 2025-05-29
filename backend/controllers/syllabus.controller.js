@@ -79,9 +79,11 @@ exports.uploadSyllabus = async (req, res) => {
     // Check if syllabus already exists for this course
     let existingSyllabus = await Syllabus.findOne({
       courseInstanceId: courseId,
+      userId: auth.userId,
     });
 
     if (existingSyllabus) {
+      console.log(`Updating existing syllabus for course ${courseId}`);
       // Update existing syllabus
       existingSyllabus.fileId = file.id;
       existingSyllabus.fileName = file.name;
@@ -90,6 +92,9 @@ exports.uploadSyllabus = async (req, res) => {
       existingSyllabus.webViewLink = file.webViewLink;
       existingSyllabus.webContentLink = file.webContentLink;
       existingSyllabus.isProcessed = false;
+      existingSyllabus.processingError = null;
+      existingSyllabus.extractedContent = "";
+      existingSyllabus.parsedData = undefined;
       existingSyllabus.uploadedAt = new Date();
 
       await existingSyllabus.save();

@@ -105,8 +105,8 @@ export interface UseToastReturn {
 }
 
 // Todo types
-export type TodoPriority = "low" | "medium" | "high";
-export type TodoUrgency = "overdue" | "urgent" | "soon" | "normal" | null;
+export type TodoCategory = "task" | "assignment" | "exam" | "final" | "project" | "quiz" | "other";
+export type TodoUrgency = "overdue" | "urgent" | "dueSoon" | "normal" | null;
 
 export interface TodoData {
   _id: string;
@@ -117,12 +117,13 @@ export interface TodoData {
   description: string;
   dueDate: string | null;
   completed: boolean;
-  priority: TodoPriority;
+  category: TodoCategory;
   tags: string[];
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
   urgency?: TodoUrgency;
+  isImportantSoon?: boolean;
 }
 
 export interface CreateTodoData {
@@ -130,7 +131,7 @@ export interface CreateTodoData {
   title: string;
   description?: string;
   dueDate?: string | null;
-  priority?: TodoPriority;
+  category?: TodoCategory;
   tags?: string[];
 }
 
@@ -138,7 +139,7 @@ export interface UpdateTodoData {
   title?: string;
   description?: string;
   dueDate?: string | null;
-  priority?: TodoPriority;
+  category?: TodoCategory;
   tags?: string[];
   completed?: boolean;
 }

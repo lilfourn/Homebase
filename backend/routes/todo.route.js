@@ -1,7 +1,7 @@
 const express = require("express");
 const { requireAuth } = require("@clerk/express");
 const router = express.Router();
-const todoController = require("../controllers/todo.controller");
+const todoController = require("../controllers/todo.controller.optimized");
 
 // Get all todos for a course
 router.get(

@@ -4,7 +4,26 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
+  timeout: 20000, // 20 second timeout to account for server timeouts
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
+
+// Add response interceptor for consistent error handling
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timeout - please check your connection';
+    } else if (error.code === 'ERR_NETWORK') {
+      error.message = 'Network error - please check your connection';
+    } else if (!error.response) {
+      error.message = 'Cannot connect to server';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Get all todos for a course
 export const getTodosByCourse = async (courseInstanceId, authToken) => {
@@ -15,15 +34,45 @@ export const getTodosByCourse = async (courseInstanceId, authToken) => {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
+        // timeout already set in axios instance
       }
     );
-    return response.data;
+    
+    // Ensure we always return the expected format
+    if (!response.data) {
+      return { success: false, error: "No data received from server", data: [] };
+    }
+    
+    // Handle various response formats
+    if (typeof response.data === 'object' && 'success' in response.data) {
+      return response.data;
+    }
+    
+    // If response is just an array of todos
+    if (Array.isArray(response.data)) {
+      return { success: true, data: response.data };
+    }
+    
+    // Unexpected format
+    console.error("Unexpected response format:", response.data);
+    return { success: false, error: "Unexpected response format", data: [] };
   } catch (error) {
     console.error(
       "Error fetching todos:",
       error.response?.data || error.message
     );
-    throw error.response?.data || error;
+    
+    // Handle timeout specifically
+    if (error.code === 'ECONNABORTED') {
+      return { success: false, error: "Request timeout - please try again", data: [] };
+    }
+    
+    // Return standardized error format
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message || "Failed to fetch todos",
+      data: [],
+    };
   }
 };
 

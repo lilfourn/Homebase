@@ -1,4 +1,6 @@
 const Course = require("../models/course.model");
+const Syllabus = require("../models/syllabus.model");
+const Todo = require("../models/todo.model");
 const { getAuth } = require("@clerk/express");
 
 const addCourse = async (req, res) => {
@@ -82,10 +84,22 @@ const deleteUserCourse = async (req, res) => {
         .json({ message: "User not authorized to delete this course" });
     }
 
-    // If checks pass, delete the course
-    await Course.findByIdAndDelete(id);
+    // Get courseInstanceId before deletion
+    const courseInstanceId = course.courseInstanceId;
 
-    res.status(200).json({ message: "Course deleted successfully" });
+    // Delete all related data in parallel
+    await Promise.all([
+      // Delete the course itself
+      Course.findByIdAndDelete(id),
+      // Delete associated syllabus
+      Syllabus.deleteOne({ courseInstanceId, userId }),
+      // Delete all associated todos
+      Todo.deleteMany({ courseInstanceId, userId })
+    ]);
+
+    res.status(200).json({ 
+      message: "Course and all related data deleted successfully" 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

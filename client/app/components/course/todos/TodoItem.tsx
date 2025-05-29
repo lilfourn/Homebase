@@ -7,6 +7,10 @@ import {
   Edit2,
   Square,
   Trash2,
+  AlertTriangle,
+  BookOpen,
+  FileText,
+  GraduationCap,
 } from "lucide-react";
 import moment from "moment";
 
@@ -16,22 +20,39 @@ export const TodoItem = ({
   onEdit,
   onDelete,
 }: TodoItemProps) => {
-  // Get urgency color classes
-  const getUrgencyClasses = () => {
-    if (todo.completed) return "border-gray-200 bg-gray-50";
-    
-    switch (todo.urgency) {
-      case "overdue":
-        return "border-red-300 bg-red-50";
-      case "urgent": // < 24 hours
-        return "border-red-300 bg-red-50";
-      case "soon": // < 48 hours
-        return "border-yellow-300 bg-yellow-50";
-      case "normal": // > 48 hours
-        return "border-green-300 bg-green-50";
+  // Get category icon
+  const getCategoryIcon = () => {
+    switch (todo.category) {
+      case "exam":
+        return <FileText className="h-4 w-4" />;
+      case "final":
+        return <GraduationCap className="h-4 w-4" />;
+      case "project":
+        return <BookOpen className="h-4 w-4" />;
+      case "quiz":
+        return <FileText className="h-4 w-4" />;
+      case "assignment":
+        return <FileText className="h-4 w-4" />;
       default:
-        return "border-gray-200 bg-white";
+        return null;
     }
+  };
+
+  // Get urgency styling
+  const getUrgencyStyles = () => {
+    if (todo.completed) return "bg-gray-50 border-gray-200";
+    
+    if (todo.urgency === "overdue") {
+      return "bg-red-50 border-red-200 shadow-sm";
+    } else if (todo.urgency === "urgent") {
+      return "bg-red-50 border-red-200 shadow-sm";
+    } else if (todo.urgency === "dueSoon") {
+      return "bg-amber-50 border-amber-200";
+    } else if (todo.isImportantSoon) {
+      return "bg-blue-50 border-blue-200";
+    }
+    
+    return "bg-white border-gray-200";
   };
 
   // Get due date display
@@ -40,49 +61,59 @@ export const TodoItem = ({
     
     const date = moment(todo.dueDate);
     const now = moment();
-    const diffHours = date.diff(now, "hours");
     
-    if (diffHours < 0) {
+    if (todo.urgency === "overdue") {
       return {
-        text: `Overdue by ${Math.abs(diffHours)} hours`,
-        className: "text-red-600",
+        text: `Overdue`,
+        className: "text-red-600 font-medium",
+        icon: <AlertTriangle className="h-3 w-3" />
       };
-    } else if (diffHours < 24) {
+    } else if (todo.urgency === "urgent") {
+      const hoursLeft = Math.floor(date.diff(now, "hours", true));
+      const minutesLeft = Math.floor(date.diff(now, "minutes") % 60);
       return {
-        text: `Due in ${diffHours} hours`,
-        className: "text-red-600",
+        text: hoursLeft > 0 ? `${hoursLeft}h ${minutesLeft}m left` : `${minutesLeft}m left`,
+        className: "text-red-600 font-medium",
+        icon: <Clock className="h-3 w-3" />
       };
-    } else if (diffHours < 48) {
+    } else if (todo.urgency === "dueSoon") {
       return {
-        text: `Due in ${Math.floor(diffHours / 24)} day`,
-        className: "text-yellow-600",
+        text: date.format("Today, h:mm A"),
+        className: "text-amber-600",
+        icon: <Clock className="h-3 w-3" />
       };
     } else {
       return {
-        text: date.format("MMM D, YYYY"),
-        className: "text-green-600",
+        text: date.format("MMM D, h:mm A"),
+        className: "text-gray-600",
+        icon: <Calendar className="h-3 w-3" />
       };
     }
   };
 
-  const dueDateInfo = getDueDateDisplay();
-  const priorityColors = {
-    low: "bg-gray-200 text-gray-700",
-    medium: "bg-blue-200 text-blue-700",
-    high: "bg-red-200 text-red-700",
+  const categoryColors = {
+    exam: "bg-red-100 text-red-700 border-red-200",
+    final: "bg-purple-100 text-purple-700 border-purple-200",
+    project: "bg-blue-100 text-blue-700 border-blue-200",
+    quiz: "bg-orange-100 text-orange-700 border-orange-200",
+    assignment: "bg-green-100 text-green-700 border-green-200",
+    task: "bg-gray-100 text-gray-700 border-gray-200",
+    other: "bg-gray-100 text-gray-700 border-gray-200",
   };
+
+  const dueDateInfo = getDueDateDisplay();
 
   return (
     <div
-      className={`p-4 rounded-lg border-2 transition-all ${getUrgencyClasses()} ${
-        todo.completed ? "opacity-75" : ""
-      }`}
+      className={`group relative p-4 rounded-lg border transition-all ${getUrgencyStyles()} ${
+        todo.completed ? "opacity-60" : ""
+      } hover:shadow-md`}
     >
       <div className="flex items-start gap-3">
         {/* Checkbox */}
         <button
           onClick={onToggleComplete}
-          className="mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+          className="mt-0.5 cursor-pointer hover:opacity-80 transition-opacity"
           aria-label={todo.completed ? "Mark as incomplete" : "Mark as complete"}
         >
           {todo.completed ? (
@@ -96,33 +127,40 @@ export const TodoItem = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
-              <h3
-                className={`font-medium text-gray-900 ${
-                  todo.completed ? "line-through" : ""
-                }`}
-              >
-                {todo.title}
-              </h3>
+              {/* Title and Category */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3
+                  className={`font-medium text-gray-900 ${
+                    todo.completed ? "line-through" : ""
+                  }`}
+                >
+                  {todo.title}
+                </h3>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                    categoryColors[todo.category] || categoryColors.task
+                  }`}
+                >
+                  {getCategoryIcon()}
+                  {todo.category === "task" ? "Task" : (todo.category || "task").charAt(0).toUpperCase() + (todo.category || "task").slice(1)}
+                </span>
+              </div>
+
+              {/* Description */}
               {todo.description && (
-                <p className="text-sm text-gray-600 mt-1">{todo.description}</p>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                  {todo.description}
+                </p>
               )}
               
               {/* Meta info */}
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 {dueDateInfo && (
                   <div className={`flex items-center gap-1 text-sm ${dueDateInfo.className}`}>
-                    <Calendar className="h-3 w-3" />
+                    {dueDateInfo.icon}
                     <span>{dueDateInfo.text}</span>
                   </div>
                 )}
-                
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    priorityColors[todo.priority]
-                  }`}
-                >
-                  {todo.priority} priority
-                </span>
 
                 {todo.completed && todo.completedAt && (
                   <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -135,8 +173,8 @@ export const TodoItem = ({
                   <div className="flex gap-1">
                     {todo.tags.map((tag, index) => (
                       <span
-                        key={index}
-                        className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
+                        key={`${todo.todoId}-tag-${index}`}
+                        className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full"
                       >
                         {tag}
                       </span>
@@ -147,17 +185,17 @@ export const TodoItem = ({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={onEdit}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer transition-colors"
                 aria-label="Edit task"
               >
                 <Edit2 className="h-4 w-4" />
               </button>
               <button
                 onClick={onDelete}
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
                 aria-label="Delete task"
               >
                 <Trash2 className="h-4 w-4" />

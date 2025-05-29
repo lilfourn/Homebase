@@ -13,6 +13,7 @@ import { useGooglePicker } from "@/app/hooks/useGooglePicker";
 import { useSyllabusManagement } from "@/app/hooks/useSyllabusManagement";
 import { useSyllabusProcessing } from "@/app/hooks/useSyllabusProcessing";
 import { useToast } from "@/app/hooks/useToast";
+import { useTodos } from "@/app/hooks/useTodos.optimized";
 
 // Components
 import {
@@ -28,6 +29,7 @@ import {
   ToastNotification,
 } from "@/app/components/course";
 import { TasksTab } from "@/app/components/course/tabs/TasksTab";
+import { TodoUrgencyAlert } from "@/app/components/course/todos/TodoUrgencyAlert";
 
 export default function CoursePage() {
   const params = useParams();
@@ -42,6 +44,12 @@ export default function CoursePage() {
 
   const { course, userData, loading, error, isLoadingUserData } =
     useCourseData(courseInstanceId);
+    
+  // Import todos data for urgency alert
+  const { todos } = useTodos({
+    courseInstanceId,
+    showToast,
+  });
 
   const {
     hasSyllabus,
@@ -119,6 +127,12 @@ export default function CoursePage() {
       case "overview":
         return (
           <div className="space-y-6">
+            {/* Urgency Alert at the top */}
+            <TodoUrgencyAlert 
+              todos={todos} 
+              courseInstanceId={courseInstanceId} 
+            />
+            
             <OverviewTab
               course={course}
               hasSyllabus={hasSyllabus}

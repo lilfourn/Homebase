@@ -24,7 +24,7 @@ const SyllabusSchema = mongoose.Schema(
     fileId: {
       type: String,
       required: [true, "File ID required"],
-      unique: true,
+      // Remove unique constraint - same file can be used for different courses
     },
 
     fileName: {

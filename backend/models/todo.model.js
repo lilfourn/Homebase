@@ -35,10 +35,10 @@ const todoSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    priority: {
+    category: {
       type: String,
-      enum: ["low", "medium", "high"],
-      default: "medium",
+      enum: ["task", "assignment", "exam", "final", "project", "quiz", "other"],
+      default: "task",
     },
     tags: [{
       type: String,
@@ -66,13 +66,33 @@ todoSchema.virtual("urgency").get(function() {
   const hoursDiff = timeDiff / (1000 * 60 * 60);
   
   if (hoursDiff < 0) return "overdue";
-  if (hoursDiff <= 24) return "urgent"; // red
-  if (hoursDiff <= 48) return "soon"; // yellow
-  return "normal"; // green
+  if (hoursDiff <= 3) return "urgent"; // 3 hours or less
+  if (hoursDiff <= 24) return "dueSoon"; // within 24 hours
+  return "normal"; // more than 24 hours
 });
 
-// Set completedAt when marking as complete
+// Virtual to check if it's an important item due within a week
+todoSchema.virtual("isImportantSoon").get(function() {
+  if (!this.dueDate || this.completed) return false;
+  
+  const importantCategories = ["exam", "final", "project"];
+  if (!importantCategories.includes(this.category)) return false;
+  
+  const now = new Date();
+  const timeDiff = this.dueDate - now;
+  const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+  
+  return daysDiff > 0 && daysDiff <= 7; // Due within a week
+});
+
+// Set completedAt when marking as complete and ensure category
 todoSchema.pre("save", function(next) {
+  // Ensure category has a value
+  if (!this.category) {
+    this.category = "task";
+  }
+  
+  // Handle completedAt
   if (this.isModified("completed")) {
     if (this.completed && !this.completedAt) {
       this.completedAt = new Date();
@@ -87,5 +107,17 @@ todoSchema.pre("save", function(next) {
 todoSchema.set("toJSON", {
   virtuals: true,
 });
+
+// Static method to clean up old completed tasks
+todoSchema.statics.cleanupOldCompleted = async function() {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  
+  const result = await this.deleteMany({
+    completed: true,
+    completedAt: { $lt: twentyFourHoursAgo }
+  });
+  
+  return result.deletedCount;
+};
 
 module.exports = mongoose.model("Todo", todoSchema);
