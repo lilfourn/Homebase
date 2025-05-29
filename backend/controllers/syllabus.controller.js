@@ -1,7 +1,10 @@
 const Course = require("../models/course.model");
 const Syllabus = require("../models/syllabus.model");
+const User = require("../models/users.model");
 const { getAuth } = require("@clerk/express");
 const syllabusProcessingService = require("../services/syllabusProcessingService");
+const TAMatchingService = require("../services/taMatchingService");
+const { ensureUserNames } = require("../utils/nameParser");
 
 // Get syllabus status for a course
 exports.getSyllabusStatus = async (req, res) => {
@@ -375,6 +378,152 @@ exports.updateParsedData = async (req, res) => {
     res.status(500).json({
       message: "Error updating parsed data",
       error: error.message,
+    });
+  }
+};
+
+// Add a TA to syllabus manually
+exports.addTAManually = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const { taData } = req.body;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!taData || !taData.name || !taData.email) {
+      return res.status(400).json({ 
+        message: "TA name and email are required" 
+      });
+    }
+
+    // Find the syllabus
+    const syllabus = await Syllabus.findOne({
+      courseInstanceId,
+      userId: auth.userId,
+    });
+
+    if (!syllabus) {
+      return res.status(404).json({ message: "Syllabus not found" });
+    }
+
+    // Ensure parsedData exists
+    if (!syllabus.parsedData) {
+      syllabus.parsedData = {
+        gradingBreakdown: {},
+        assignmentDates: [],
+        examDates: [],
+        contacts: [],
+        confidence: 1,
+      };
+    }
+
+    // Ensure contacts array exists
+    if (!syllabus.parsedData.contacts) {
+      syllabus.parsedData.contacts = [];
+    }
+
+    // Add the new TA
+    const newTA = {
+      name: taData.name,
+      role: "TA",
+      email: taData.email,
+      phone: taData.phone || "",
+      officeHours: taData.officeHours || "",
+      assignmentRule: taData.assignmentRule || "",
+    };
+
+    syllabus.parsedData.contacts.push(newTA);
+    syllabus.parsedData.manuallyEdited = true;
+    syllabus.parsedData.lastEditedAt = new Date();
+    
+    await syllabus.save();
+
+    res.status(200).json({
+      message: "TA added successfully",
+      ta: newTA,
+      allContacts: syllabus.parsedData.contacts,
+    });
+  } catch (error) {
+    console.error("Error adding TA manually:", error);
+    res.status(500).json({
+      message: "Error adding TA",
+      error: error.message || "Unknown error",
+    });
+  }
+};
+
+// Get matched TA for the current user
+exports.getMatchedTA = async (req, res) => {
+  try {
+    const { courseInstanceId } = req.params;
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Get user information
+    let user = await User.findOne({ userId: auth.userId });
+    if (!user) {
+      console.error("User not found for userId:", auth.userId);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Try to extract lastName from fullName if needed
+    user = ensureUserNames(user.toObject());
+
+    // Get syllabus with parsed data
+    const syllabus = await Syllabus.findOne({
+      courseInstanceId,
+      userId: auth.userId,
+    });
+
+    if (!syllabus) {
+      return res.status(404).json({ message: "Syllabus not found" });
+    }
+
+    if (!syllabus.isProcessed || !syllabus.parsedData) {
+      return res.status(400).json({ 
+        message: "Syllabus has not been processed yet",
+        needsProcessing: true
+      });
+    }
+
+    // Ensure parsedData has contacts array
+    if (!syllabus.parsedData.contacts) {
+      console.log("No contacts found in parsed data");
+      syllabus.parsedData.contacts = [];
+    }
+
+    console.log("Syllabus contacts:", syllabus.parsedData.contacts);
+    console.log("User info for matching:", {
+      lastName: user.lastName,
+      studentId: user.studentId,
+    });
+
+    // Get the matching result
+    const matchResult = TAMatchingService.getDetailedMatch(
+      user,
+      syllabus.parsedData.contacts
+    );
+
+    res.status(200).json({
+      matchedTA: matchResult.matchedTA,
+      allTAs: matchResult.allTAs,
+      matchCriteria: matchResult.matchCriteria,
+      userInfo: {
+        hasLastName: !!user.lastName,
+        hasStudentId: !!user.studentId,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting matched TA:", error);
+    res.status(500).json({
+      message: "Error getting matched TA",
+      error: error.message || "Unknown error",
     });
   }
 };

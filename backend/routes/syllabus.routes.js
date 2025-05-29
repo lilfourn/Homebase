@@ -51,4 +51,18 @@ router.put(
   syllabusController.updateParsedData
 );
 
+// Route to get matched TA for current user
+router.get(
+  "/:courseInstanceId/matched-ta",
+  requireAuth(),
+  syllabusController.getMatchedTA
+);
+
+// Route to manually add a TA
+router.post(
+  "/:courseInstanceId/add-ta",
+  requireAuth(),
+  syllabusController.addTAManually
+);
+
 module.exports = router;

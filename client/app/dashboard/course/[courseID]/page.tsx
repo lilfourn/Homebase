@@ -32,18 +32,34 @@ import {
 } from "@/app/components/course";
 import { TasksTab } from "@/app/components/course/tabs/TasksTab";
 import { TodoUrgencyAlert } from "@/app/components/course/todos/TodoUrgencyAlert";
+import { TASetupModal } from "@/app/components/course/TASetupModal";
+import { LastNameModal } from "@/app/components/course/LastNameModal";
+import { useTASetup } from "@/app/context/TASetupContext";
+import { addTAManually } from "@/app/api/courses.api";
+import { updateUserNameInfo } from "@/app/api/users.api";
+import { useUser } from "@clerk/nextjs";
 
 export default function CoursePage() {
   const params = useParams();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, getToken } = useAuth();
+  const { user: clerkUser } = useUser();
   const courseInstanceId = params.courseID as string;
 
   // Local state
   const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [showLastNameModal, setShowLastNameModal] = useState(false);
 
   // Custom hooks
   const { toast, showToast, clearToast } = useToast();
   const { toasts: undoToasts, showToast: showUndoToast, removeToast: removeUndoToast } = useToastWithUndo();
+  const { 
+    showTASetupModal, 
+    courseIdForSetup, 
+    courseNameForSetup,
+    closeTASetupModal, 
+    skipTASetup, 
+    markAsNoTA 
+  } = useTASetup();
 
   const { course, userData, loading, error, isLoadingUserData } =
     useCourseData(courseInstanceId);
@@ -114,6 +130,63 @@ export default function CoursePage() {
     setShowSyllabusModal(true);
   };
 
+  // TA Setup handlers
+  const handleAddTA = async (taData: {
+    name: string;
+    email: string;
+    officeHours?: string;
+    assignmentRule?: string;
+  }) => {
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token");
+
+      await addTAManually(courseIdForSetup || courseInstanceId, taData, token);
+      showToast("TA added successfully", "success");
+      closeTASetupModal();
+      
+      // Refresh the parsed data to show the new TA
+      if (loadAiParsedData) {
+        loadAiParsedData();
+      }
+    } catch (error) {
+      console.error("Error adding TA:", error);
+      showToast("Failed to add TA", "error");
+    }
+  };
+
+  const handleSkipTA = () => {
+    if (courseIdForSetup) {
+      skipTASetup(courseIdForSetup);
+    }
+  };
+
+  const handleNoTA = () => {
+    if (courseIdForSetup) {
+      markAsNoTA(courseIdForSetup);
+      showToast("Marked as class without TA", "success");
+    }
+  };
+
+  // Last name update handler
+  const handleLastNameSubmit = async (data: { lastName: string; studentId?: string }) => {
+    if (!clerkUser?.id) return;
+
+    try {
+      await updateUserNameInfo(clerkUser.id, data);
+      showToast("Profile updated successfully", "success");
+      setShowLastNameModal(false);
+      
+      // Refresh the matched TA data
+      if (loadAiParsedData) {
+        loadAiParsedData();
+      }
+    } catch (error) {
+      console.error("Error updating user info:", error);
+      showToast("Failed to update profile", "error");
+    }
+  };
+
   // Combined loading states
   if (
     !isLoaded ||
@@ -160,6 +233,7 @@ export default function CoursePage() {
                   loadAiParsedData();
                 }}
                 showToast={showToast}
+                onNeedsLastName={() => setShowLastNameModal(true)}
               />
             )}
           </div>
@@ -226,6 +300,24 @@ export default function CoursePage() {
       
       {/* Undo Toast Container */}
       <ToastContainer toasts={undoToasts} onClose={removeUndoToast} />
+
+      {/* TA Setup Modal */}
+      <TASetupModal
+        isOpen={showTASetupModal}
+        onClose={closeTASetupModal}
+        onAddTA={handleAddTA}
+        onSkip={handleSkipTA}
+        onNoTA={handleNoTA}
+        courseName={courseNameForSetup || course?.courseName}
+      />
+
+      {/* Last Name Modal */}
+      <LastNameModal
+        isOpen={showLastNameModal}
+        onClose={() => setShowLastNameModal(false)}
+        onSubmit={handleLastNameSubmit}
+        currentFullName={userData?.fullName}
+      />
     </div>
   );
 }

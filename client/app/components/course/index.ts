@@ -9,3 +9,5 @@ export { ErrorState, LoadingState, NoCourseState } from "./ui/LoadingStates";
 export { SyllabusPrompt } from "./ui/SyllabusPrompt";
 export { SyllabusUploadModal } from "./ui/SyllabusUploadModal";
 export { ToastNotification } from "./ui/ToastNotification";
+export { TASetupModal } from "./TASetupModal";
+export { LastNameModal } from "./LastNameModal";

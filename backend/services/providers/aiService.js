@@ -49,13 +49,17 @@ Expected JSON structure:
       "name": "Dr. John Smith",
       "role": "Professor",
       "email": "john.smith@university.edu",
-      "phone": "555-123-4567"
+      "phone": "555-123-4567",
+      "officeHours": "MWF 2-4 PM, Room 302",
+      "assignmentRule": ""
     },
     {
       "name": "Jane Doe",
       "role": "TA",
       "email": "jane.doe@university.edu",
-      "phone": ""
+      "phone": "",
+      "officeHours": "TTh 1-3 PM, Room 204",
+      "assignmentRule": "Last names A-M"
     }
   ],
   "confidence": 0.85
@@ -65,10 +69,15 @@ Instructions:
 1. Extract grading breakdown as percentages (should add up to 100 if possible)
 2. Find all assignment due dates and exam dates
 3. Format dates as YYYY-MM-DD
-4. Extract professor and TA contact information
+4. Extract professor and TA contact information including:
+   - Name, role, email, phone
+   - Office hours (look for phrases like "office hours", "available", "office", times and room numbers)
+   - For TAs: assignment rules (look for how students are assigned to TAs, e.g., "Students with last names A-M", "EIDs starting with 1-5", etc.)
 5. Include a confidence score (0-1) based on how clear the information was
 6. If information is missing or unclear, use empty arrays or empty strings
 7. For grading breakdown, use common category names like "assignments", "exams", "participation", "quizzes", "projects", etc.
+8. Extract ALL teaching assistants listed, not just one
+9. Pay special attention to TA assignment rules that indicate which students should contact which TA
 
 Syllabus text to analyze:
 ${extractedText}

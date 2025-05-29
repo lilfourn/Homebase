@@ -338,6 +338,48 @@ const updateUserCustomColors = async (req, res) => {
   }
 };
 
+const updateUserNameInfo = async (req, res) => {
+  try {
+    const { userId, lastName, studentId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    // Build update object with only provided fields
+    const updateData = {};
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (studentId !== undefined) updateData.studentId = studentId;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: "No fields to update" });
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "User information updated successfully",
+      user: {
+        userId: updatedUser.userId,
+        fullName: updatedUser.fullName,
+        lastName: updatedUser.lastName,
+        studentId: updatedUser.studentId,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating user name info:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   viewUsers,
   updateUserSchool,
@@ -345,5 +387,6 @@ module.exports = {
   syncUser,
   updateUserSchoolAndColors,
   updateUserCustomColors,
+  updateUserNameInfo,
   upload, // multer instance
 };

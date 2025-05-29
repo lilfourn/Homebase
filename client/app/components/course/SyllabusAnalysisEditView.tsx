@@ -2,10 +2,12 @@
 
 import { updateSyllabusParsedData } from "@/app/api/courses.api";
 import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
+import { useMatchedTA } from "@/app/hooks/useMatchedTA";
 import { useAuth } from "@clerk/nextjs";
 import {
   Calendar,
   Check,
+  Clock,
   Edit2,
   FileText,
   GraduationCap,
@@ -13,11 +15,12 @@ import {
   Plus,
   Save,
   Trash2,
+  UserCheck,
   Users,
   X,
 } from "lucide-react";
 import moment from "moment";
-import { useState } from "react";
+import React, { useState } from "react";
 import { SyllabusCalendarView } from "./SyllabusCalendarView";
 import { SyllabusDataHelper } from "./ui/SyllabusDataHelper";
 
@@ -26,6 +29,7 @@ interface SyllabusAnalysisEditViewProps {
   courseInstanceId: string;
   onDataUpdate?: (updatedData: ParsedSyllabusData) => void;
   showToast?: (message: string, type: "success" | "error") => void;
+  onNeedsLastName?: () => void;
 }
 
 // Simple Card components
@@ -84,11 +88,19 @@ const Badge: React.FC<{
 
 export const SyllabusAnalysisEditView: React.FC<
   SyllabusAnalysisEditViewProps
-> = ({ parsedData, courseInstanceId, onDataUpdate, showToast }) => {
+> = ({ parsedData, courseInstanceId, onDataUpdate, showToast, onNeedsLastName }) => {
   const { getToken } = useAuth();
+  const { matchResult, needsLastName } = useMatchedTA(courseInstanceId);  // TODO: Add course name
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedData, setEditedData] = useState<ParsedSyllabusData>(parsedData);
+
+  // Trigger lastName modal when needed
+  React.useEffect(() => {
+    if (needsLastName && onNeedsLastName) {
+      onNeedsLastName();
+    }
+  }, [needsLastName, onNeedsLastName]);
 
   // Handle save
   const handleSave = async () => {
@@ -217,6 +229,8 @@ export const SyllabusAnalysisEditView: React.FC<
       role: "Role",
       email: "",
       phone: "",
+      officeHours: "",
+      assignmentRule: "",
     };
     setEditedData({
       ...editedData,
@@ -598,6 +612,30 @@ export const SyllabusAnalysisEditView: React.FC<
                         placeholder="Phone (optional)"
                         className="w-full px-2 py-1 text-sm border rounded"
                       />
+                      <input
+                        type="text"
+                        value={contact.officeHours || ""}
+                        onChange={(e) =>
+                          updateContact(index, {
+                            ...contact,
+                            officeHours: e.target.value,
+                          })
+                        }
+                        placeholder="Office Hours (optional)"
+                        className="w-full px-2 py-1 text-sm border rounded"
+                      />
+                      <input
+                        type="text"
+                        value={contact.assignmentRule || ""}
+                        onChange={(e) =>
+                          updateContact(index, {
+                            ...contact,
+                            assignmentRule: e.target.value,
+                          })
+                        }
+                        placeholder="TA Assignment Rule (e.g., Last names A-M)"
+                        className="w-full px-2 py-1 text-sm border rounded"
+                      />
                       <button
                         onClick={() => removeContact(index)}
                         className="text-sm text-red-600 hover:text-red-700 cursor-pointer"
@@ -605,26 +643,50 @@ export const SyllabusAnalysisEditView: React.FC<
                         Remove
                       </button>
                     </div>
-                  ) : (
-                    <>
-                      <h5 className="font-medium text-sm text-gray-900">
-                        {contact.name}
-                      </h5>
-                      <Badge variant="secondary" className="text-xs mt-1">
-                        {contact.role}
-                      </Badge>
-                      {contact.email && (
-                        <p className="text-xs text-gray-600 mt-1">
-                          📧 {contact.email}
-                        </p>
-                      )}
-                      {contact.phone && (
-                        <p className="text-xs text-gray-600">
-                          📞 {contact.phone}
-                        </p>
-                      )}
-                    </>
-                  )}
+                  ) : (() => {
+                    const isMatchedTA = matchResult?.matchedTA && matchResult.matchedTA.email === contact.email;
+                    return (
+                      <div className={isMatchedTA ? 'relative' : ''}>
+                        {isMatchedTA && (
+                          <div className="absolute -top-2 -right-2">
+                            <UserCheck className="w-4 h-4 text-blue-600" />
+                          </div>
+                        )}
+                        <h5 className="font-medium text-sm text-gray-900">
+                          {contact.name}
+                          {isMatchedTA && (
+                            <span className="ml-2 text-blue-600 text-xs font-normal">
+                              (Your TA)
+                            </span>
+                          )}
+                        </h5>
+                        <Badge variant="secondary" className="text-xs mt-1">
+                          {contact.role}
+                        </Badge>
+                        {contact.email && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            📧 {contact.email}
+                          </p>
+                        )}
+                        {contact.phone && (
+                          <p className="text-xs text-gray-600">
+                            📞 {contact.phone}
+                          </p>
+                        )}
+                        {contact.officeHours && (
+                          <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {contact.officeHours}
+                          </p>
+                        )}
+                        {contact.assignmentRule && (
+                          <p className="text-xs text-gray-500 mt-1 italic">
+                            Assignment: {contact.assignmentRule}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

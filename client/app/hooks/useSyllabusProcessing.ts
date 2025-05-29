@@ -34,6 +34,8 @@ export interface ParsedSyllabusData {
     role: string;
     email: string;
     phone: string;
+    officeHours?: string;
+    assignmentRule?: string;
   }>;
   confidence?: number;
 }

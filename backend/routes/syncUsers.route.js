@@ -7,6 +7,7 @@ const {
   syncUser,
   updateUserSchoolAndColors,
   updateUserCustomColors,
+  updateUserNameInfo,
   upload,
 } = require("../controllers/user.controller");
 const router = express.Router();
@@ -33,5 +34,8 @@ router.put(
   upload.single("schoolLogo"),
   updateUserCustomColors
 );
+
+// Update user's name information (lastName, studentId)
+router.put("/name-info", updateUserNameInfo);
 
 module.exports = router;

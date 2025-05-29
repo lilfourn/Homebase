@@ -1,17 +1,21 @@
 "use client";
 
 import { ParsedSyllabusData } from "@/app/hooks/useSyllabusProcessing";
+import { useMatchedTA } from "@/app/hooks/useMatchedTA";
 import {
   Calendar,
   FileText,
   GraduationCap,
   Users,
+  Clock,
+  UserCheck,
 } from "lucide-react";
 import moment from "moment";
 import { SyllabusCalendarView } from "./SyllabusCalendarView";
 
 interface SyllabusAnalysisViewProps {
   parsedData: ParsedSyllabusData;
+  courseInstanceId?: string;
 }
 
 // Simple Card component
@@ -70,7 +74,9 @@ const Badge: React.FC<{
 
 export const SyllabusAnalysisView: React.FC<SyllabusAnalysisViewProps> = ({
   parsedData,
+  courseInstanceId,
 }) => {
+  const { matchResult } = useMatchedTA(courseInstanceId || null);
   return (
     <div className="space-y-6">
       {/* Calendar View */}
@@ -185,24 +191,55 @@ export const SyllabusAnalysisView: React.FC<SyllabusAnalysisViewProps> = ({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {parsedData.contacts.map((contact, index) => (
-                  <div key={index} className="p-3 border rounded-lg">
-                    <h5 className="font-medium text-sm text-gray-900">
-                      {contact.name}
-                    </h5>
-                    <Badge variant="secondary" className="text-xs mt-1">
-                      {contact.role}
-                    </Badge>
-                    {contact.email && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        📧 {contact.email}
-                      </p>
-                    )}
-                    {contact.phone && (
-                      <p className="text-xs text-gray-600">📞 {contact.phone}</p>
-                    )}
-                  </div>
-                ))}
+                {parsedData.contacts.map((contact, index) => {
+                  const isMatchedTA = matchResult?.matchedTA && matchResult.matchedTA.email === contact.email;
+                  return (
+                    <div 
+                      key={index} 
+                      className={`p-3 border rounded-lg ${
+                        isMatchedTA ? 'border-blue-500 bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h5 className="font-medium text-sm text-gray-900">
+                            {contact.name}
+                            {isMatchedTA && (
+                              <span className="ml-2 text-blue-600 text-xs font-normal">
+                                (Your TA)
+                              </span>
+                            )}
+                          </h5>
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            {contact.role}
+                          </Badge>
+                        </div>
+                        {isMatchedTA && (
+                          <UserCheck className="w-4 h-4 text-blue-600" />
+                        )}
+                      </div>
+                      {contact.email && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          📧 {contact.email}
+                        </p>
+                      )}
+                      {contact.phone && (
+                        <p className="text-xs text-gray-600">📞 {contact.phone}</p>
+                      )}
+                      {contact.officeHours && (
+                        <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {contact.officeHours}
+                        </p>
+                      )}
+                      {contact.assignmentRule && (
+                        <p className="text-xs text-gray-500 mt-1 italic">
+                          Assignment: {contact.assignmentRule}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

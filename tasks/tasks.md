@@ -22,9 +22,9 @@ Based on the [Product Requirements Document (prd.md)](../prd.md).
   - [x] TA contact information (name, email if available).
   - [x] Professor contact information (name, email, phone number if available).
 - [x] **(P0)** Display extracted dates (assignments, exams) on a calendar view within the course page.
-- [ ] **(P0)** Populate the "Task List" (see 7.3) with extracted assignment due dates.
+- [x] **(P0)** Populate the "Task List" (see 7.3) with extracted assignment due dates.
 - [ ] **(P0)** Display extracted contact information (TA, Professor) in a dedicated "Contacts" section.
-- [ ] **(P1)** Implement a mechanism for users to review and correct AI-extracted syllabus information.
+- [x] **(P1)** Implement a mechanism for users to review and correct AI-extracted syllabus information.
 - [ ] **(P2)** Notify users if the AI has low confidence in certain extracted syllabus details.
 
 ### 7.3. Task Management

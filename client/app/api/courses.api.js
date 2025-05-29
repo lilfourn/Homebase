@@ -225,3 +225,44 @@ export const updateSyllabusParsedData = async (
     throw error.response?.data || error;
   }
 };
+
+export const getMatchedTA = async (courseInstanceId, authToken) => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/syllabus/${courseInstanceId}/matched-ta`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error getting matched TA:",
+      error.response?.data || error.message || error
+    );
+    throw error.response?.data || error.message || error;
+  }
+};
+
+export const addTAManually = async (courseInstanceId, taData, authToken) => {
+  try {
+    const response = await axiosInstance.post(
+      `/api/syllabus/${courseInstanceId}/add-ta`,
+      { taData },
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error adding TA manually:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+};

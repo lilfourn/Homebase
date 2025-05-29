@@ -87,6 +87,14 @@ const SyllabusSchema = mongoose.Schema(
           role: String,
           email: String,
           phone: String,
+          officeHours: {
+            type: String,
+            required: false,
+          },
+          assignmentRule: {
+            type: String,
+            required: false,
+          },
         },
       ],
     },

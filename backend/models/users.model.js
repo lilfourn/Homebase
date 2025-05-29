@@ -76,6 +76,21 @@ const UserSchema = mongoose.Schema(
       default: [],
     },
 
+    // Student Information (optional)
+    lastName: {
+      type: String,
+      required: false,
+      default: "",
+      trim: true,
+    },
+
+    studentId: {
+      type: String,
+      required: false,
+      default: "",
+      trim: true,
+    },
+
     // Google Drive Integration
     googleDrive: {
       connected: {

@@ -43,6 +43,23 @@ export async function updateUserSchool(userId, school) {
   return res.json();
 }
 
+export async function updateUserNameInfo(userId, nameData) {
+  const res = await fetch(`${API_URL}/api/users/name-info`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      userId,
+      ...nameData,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Update name info error: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchAllUsers() {
   const res = await fetch(`${API_URL}/api/users`, {
     credentials: "include",
