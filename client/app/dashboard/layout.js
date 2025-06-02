@@ -11,6 +11,7 @@ import {
   useSchoolUpdate,
 } from "@/app/context/SchoolUpdateContext";
 import { TASetupProvider } from "@/app/context/TASetupContext";
+import { AgentProvider } from "@/app/context/AgentContext";
 import { useUser } from "@clerk/nextjs";
 import { BookCopy, Settings, User } from "lucide-react";
 import Link from "next/link";
@@ -186,9 +187,10 @@ export default function DashboardLayout({ children }) {
     <SchoolUpdateProvider>
       <CourseProvider>
         <TASetupProvider>
-          <ThemeApplicator />
-          <SchoolSelectionModal />
-          <div className="flex h-screen">
+          <AgentProvider>
+            <ThemeApplicator />
+            <SchoolSelectionModal />
+            <div className="flex h-screen">
           <Sidebar>
             <SchoolSidebarItem active={isSchoolActive} href="/dashboard" />
             <SidebarItem
@@ -221,6 +223,7 @@ export default function DashboardLayout({ children }) {
           </Sidebar>
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
+          </AgentProvider>
         </TASetupProvider>
       </CourseProvider>
     </SchoolUpdateProvider>

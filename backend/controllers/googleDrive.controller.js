@@ -1,6 +1,7 @@
 const User = require("../models/users.model");
 const googleDriveService = require("../services/googleDrive/googleDriveService");
 const { getAuth } = require("@clerk/express");
+const mongoose = require("mongoose");
 
 /**
  * Get OAuth URL for Google Drive authorization
@@ -299,7 +300,7 @@ const getImportedFiles = async (req, res) => {
     const { userId } = getAuth(req);
     if (!userId) return res.status(401).json({ message: "Not signed in" });
 
-    const { courseId } = req.query;
+    let { courseId } = req.query;
 
     const user = await User.findOne({ userId });
     if (!user) {
@@ -310,7 +311,28 @@ const getImportedFiles = async (req, res) => {
 
     // Filter by courseId if provided
     if (courseId) {
-      files = files.filter((f) => f.courseId?.toString() === courseId);
+      console.log('[getImportedFiles] Filtering by courseId:', courseId, 'type:', typeof courseId);
+      console.log('[getImportedFiles] Total files before filter:', files.length);
+      
+      // Log first few files for debugging
+      files.slice(0, 3).forEach((f, idx) => {
+        console.log(`[getImportedFiles] File ${idx}:`, {
+          fileName: f.fileName,
+          courseId: f.courseId,
+          courseIdType: typeof f.courseId,
+          courseIdString: f.courseId?.toString(),
+          isNull: f.courseId === null,
+          isUndefined: f.courseId === undefined
+        });
+      });
+      
+      files = files.filter((f) => {
+        // Handle both ObjectId and string comparisons
+        const fileIdStr = f.courseId?.toString();
+        const matches = fileIdStr === courseId.toString();
+        return matches;
+      });
+      console.log('[getImportedFiles] Files after filter:', files.length);
     }
 
     res.status(200).json({ files, totalCount: files.length });
@@ -414,6 +436,7 @@ const importFiles = async (req, res) => {
         }
       } else {
         // New file, add it
+        console.log(`[importFiles] Adding new file "${pickerFile.name}" with courseId:`, courseId, 'type:', typeof courseId);
         filesToAdd.push({
           fileId: pickerFile.id,
           fileName: pickerFile.name,

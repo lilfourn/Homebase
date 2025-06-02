@@ -164,6 +164,7 @@ const FileListItem = ({
 };
 
 export default function CourseGoogleDriveImporter({ courseId, isConnected }) {
+  console.log('[CourseGoogleDriveImporter] Rendering with courseId:', courseId);
   const { getToken } = useAuth();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");

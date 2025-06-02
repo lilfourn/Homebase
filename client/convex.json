@@ -1,0 +1,12 @@
+{
+  "functions": "convex/",
+  "node": {
+    "externalPackages": ["openai", "pdf-parse"]
+  },
+  "authConfig": {
+    "providers": [{
+      "domain": "https://homebase.edu",
+      "applicationID": "homebase"
+    }]
+  }
+}

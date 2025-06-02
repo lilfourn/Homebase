@@ -13,6 +13,7 @@ const { clerkClient, clerkMiddleware } = require("@clerk/express");
 const { verifyWebhook } = require("@clerk/express");
 const syllabusRoutes = require("./routes/syllabus.routes");
 const todoRoutes = require("./routes/todo.route");
+const agentRoutes = require("./routes/agent.routes");
 const app = express();
 
 // Request timeout middleware
@@ -68,6 +69,7 @@ app.use("/api/users", userRoute);
 app.use("/api/google-drive", googleDriveRoute);
 app.use("/api/syllabus", syllabusRoutes);
 app.use("/api/todos", todoRoutes);
+app.use("/api/agents", agentRoutes);
 
 app.get("/", async (req, res) => {
   res.send("Good Job");

@@ -1,5 +1,5 @@
 import { TabNavigationProps } from "@/app/types/course.types";
-import { CheckSquare, Library, ListChecks } from "lucide-react";
+import { CheckSquare, Library, ListChecks, Bot } from "lucide-react";
 
 export const TabNavigation = ({
   activeTab,
@@ -43,6 +43,17 @@ export const TabNavigation = ({
         >
           <Library className="inline-block h-5 w-5 mr-2" />
           Library
+        </button>
+        <button
+          onClick={() => setActiveTab("agents")}
+          className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm cursor-pointer ${
+            activeTab === "agents"
+              ? "border-[var(--custom-primary-color)] text-[var(--custom-primary-color)]"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          }`}
+        >
+          <Bot className="inline-block h-5 w-5 mr-2" />
+          Agents
         </button>
       </nav>
     </div>
