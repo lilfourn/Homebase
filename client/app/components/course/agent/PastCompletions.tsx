@@ -2,8 +2,6 @@
 
 import {
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
   Clock,
   Download,
   Eye,
@@ -13,6 +11,7 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 import { useAgents } from "../../../hooks/agents/useAgents";
+import AgentResultDialog from "./AgentResultDialog";
 
 interface SelectedFile {
   id: string;
@@ -44,7 +43,8 @@ export default function PastCompletions({
   completions,
   courseColors,
 }: PastCompletionsProps) {
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [selectedCompletion, setSelectedCompletion] =
+    useState<AgentCompletion | null>(null);
   const { deleteTask, isLoading: isContextLoading } = useAgents();
 
   // Component logging
@@ -55,22 +55,6 @@ export default function PastCompletions({
     });
     return () => console.log("[PastCompletions] Component unmounted");
   }, [completions.length, courseColors]);
-
-  const toggleExpand = (id: string) => {
-    const isExpanded = expandedItems.has(id);
-    console.log("[PastCompletions] Toggle expand", {
-      completionId: id,
-      action: isExpanded ? "collapse" : "expand",
-    });
-
-    const newExpanded = new Set(expandedItems);
-    if (isExpanded) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedItems(newExpanded);
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -121,6 +105,22 @@ export default function PastCompletions({
     return labels[type] || type;
   };
 
+  const handleDownloadResult = (completion: AgentCompletion) => {
+    if (!completion.result) return;
+
+    const blob = new Blob([completion.result.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${completion.taskName}.${
+      completion.result.format === "json" ? "json" : "md"
+    }`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (completions.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -131,14 +131,12 @@ export default function PastCompletions({
   }
 
   return (
-    <div className="space-y-3">
-      {completions.map((completion) => {
-        const isExpanded = expandedItems.has(completion.id);
-
-        return (
+    <>
+      <div className="space-y-3">
+        {completions.map((completion) => (
           <div
             key={completion.id}
-            className="border rounded-lg overflow-hidden transition-all duration-200"
+            className="border rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors"
             style={{
               borderColor:
                 completion.status === "processing"
@@ -146,11 +144,7 @@ export default function PastCompletions({
                   : "#e5e7eb",
             }}
           >
-            {/* Header */}
-            <div
-              className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-              onClick={() => toggleExpand(completion.id)}
-            >
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {getStatusIcon(completion.status)}
                 <div>
@@ -176,25 +170,19 @@ export default function PastCompletions({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {completion.status === "completed" && (
+                {completion.status === "completed" && completion.result && (
                   <>
                     <button
                       title="View Result"
                       className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log("View result");
-                      }}
+                      onClick={() => setSelectedCompletion(completion)}
                     >
                       <Eye className="w-4 h-4 text-gray-600" />
                     </button>
                     <button
                       title="Download Result"
                       className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log("Download result");
-                      }}
+                      onClick={() => handleDownloadResult(completion)}
                     >
                       <Download className="w-4 h-4 text-gray-600" />
                     </button>
@@ -204,8 +192,7 @@ export default function PastCompletions({
                   <button
                     title="Delete Task"
                     className="p-1.5 rounded-md hover:bg-red-100 transition-colors text-red-500 hover:text-red-700"
-                    onClick={async (e) => {
-                      e.stopPropagation();
+                    onClick={async () => {
                       try {
                         await deleteTask(completion.id);
                       } catch (error) {
@@ -217,105 +204,28 @@ export default function PastCompletions({
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
-                <button
-                  title={isExpanded ? "Collapse" : "Expand"}
-                  className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand(completion.id);
-                  }}
-                  aria-expanded={isExpanded}
-                >
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
               </div>
             </div>
-
-            {/* Expanded Content */}
-            {isExpanded && (
-              <div className="px-4 py-3 border-t bg-gray-50">
-                <div className="space-y-3">
-                  {/* Files Used */}
-                  <div>
-                    <h5 className="text-xs font-medium text-gray-700 mb-2">
-                      Files Used:
-                    </h5>
-                    <div className="space-y-1">
-                      {completion.files.map((file) => (
-                        <div
-                          key={`${completion.id}-${file.id}`}
-                          className="flex items-center gap-2 text-xs text-gray-600"
-                        >
-                          <FileText className="w-3 h-3" />
-                          <span>{file.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Result */}
-                  {completion.result && completion.status === "completed" && (
-                    <div>
-                      <h5 className="text-xs font-medium text-gray-700 mb-2">
-                        Result:
-                      </h5>
-                      <p className="text-xs text-gray-600 bg-white p-3 rounded-md border">
-                        {completion.result.content}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Processing Message */}
-                  {completion.status === "processing" && (
-                    <div
-                      className="flex items-center gap-2 text-sm"
-                      style={{ color: courseColors.primary }}
-                    >
-                      <Clock className="w-4 h-4 animate-spin" />
-                      <span>Processing... This may take a few minutes</span>
-                    </div>
-                  )}
-
-                  {/* Failed Message */}
-                  {completion.status === "failed" && (
-                    <div className="text-sm text-red-600">
-                      Failed to process. Please try again.
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  {completion.status === "completed" && (
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
-                        style={{
-                          backgroundColor: courseColors.primary,
-                          color: "white",
-                        }}
-                      >
-                        View Full Result
-                      </button>
-                      <button
-                        className="px-3 py-1.5 text-xs font-medium rounded-md border transition-colors hover:bg-gray-100"
-                        style={{
-                          borderColor: courseColors.primary,
-                          color: courseColors.primary,
-                        }}
-                      >
-                        Re-run Agent
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
-        );
-      })}
-    </div>
+        ))}
+      </div>
+
+      {/* Result Dialog */}
+      {selectedCompletion && selectedCompletion.result && (
+        <AgentResultDialog
+          isOpen={!!selectedCompletion}
+          onClose={() => setSelectedCompletion(null)}
+          taskName={selectedCompletion.taskName}
+          agentType={selectedCompletion.agentType}
+          result={selectedCompletion.result}
+          files={selectedCompletion.files}
+          completedAt={selectedCompletion.completedAt}
+          onEdit={() => {
+            console.log("Edit functionality to be implemented");
+            // TODO: Implement edit functionality
+          }}
+        />
+      )}
+    </>
   );
 }
