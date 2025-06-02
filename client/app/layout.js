@@ -1,6 +1,5 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { Rubik } from "next/font/google";
-// import { ConvexClientProvider } from "./providers/ConvexClientProvider";
 import "./globals.css";
 
 const rubik = Rubik({
@@ -20,11 +19,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
-      {/* <ConvexClientProvider> */}
-        <html lang="en">
-          <body className={`${rubik.className} antialiased`}>{children}</body>
-        </html>
-      {/* </ConvexClientProvider> */}
+      <html lang="en">
+        <body className={`${rubik.className} antialiased`}>{children}</body>
+      </html>
     </ClerkProvider>
   );
 }

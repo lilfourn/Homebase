@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -32,7 +32,10 @@ export async function validateAndCreateTask(taskData, token) {
     );
     return response.data;
   } catch (error) {
-    console.error("Error validating agent task:", error.response?.data || error.message);
+    console.error(
+      "Error validating agent task:",
+      error.response?.data || error.message
+    );
     throw error.response?.data || error;
   }
 }
@@ -44,18 +47,17 @@ export async function validateAndCreateTask(taskData, token) {
  */
 export async function createTaskWithQueue(taskData, token) {
   try {
-    const response = await axiosInstance.post(
-      "/api/agents/tasks/create",
-      taskData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await axiosInstance.post("/api/agents/tasks", taskData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-    console.error("Error creating agent task:", error.response?.data || error.message);
+    console.error(
+      "Error creating agent task:",
+      error.response?.data || error.message
+    );
     throw error.response?.data || error;
   }
 }
@@ -77,7 +79,10 @@ export async function getJobStatus(jobId, token) {
     );
     return response.data;
   } catch (error) {
-    console.error("Error getting job status:", error.response?.data || error.message);
+    console.error(
+      "Error getting job status:",
+      error.response?.data || error.message
+    );
     throw error.response?.data || error;
   }
 }
@@ -95,7 +100,10 @@ export async function getQueueStatus(token) {
     });
     return response.data;
   } catch (error) {
-    console.error("Error getting queue status:", error.response?.data || error.message);
+    console.error(
+      "Error getting queue status:",
+      error.response?.data || error.message
+    );
     throw error.response?.data || error;
   }
 }
@@ -113,7 +121,10 @@ export async function getQueueDashboard(token) {
     });
     return response.data;
   } catch (error) {
-    console.error("Error getting dashboard data:", error.response?.data || error.message);
+    console.error(
+      "Error getting dashboard data:",
+      error.response?.data || error.message
+    );
     throw error.response?.data || error;
   }
 }
@@ -131,7 +142,10 @@ export async function getUserUsage(token) {
     });
     return response.data;
   } catch (error) {
-    console.error("Error getting user usage:", error.response?.data || error.message);
+    console.error(
+      "Error getting user usage:",
+      error.response?.data || error.message
+    );
     throw error.response?.data || error;
   }
 }
@@ -207,4 +221,184 @@ export async function pollJobStatus(jobId, token, options = {}) {
   return () => {
     polling = false;
   };
+}
+
+/**
+ * Get all agent tasks for the current user
+ * @param {string} token - Auth token
+ * @param {string | null} courseInstanceId - Optional course ID to filter tasks
+ */
+export async function getTasks(token, courseInstanceId = null) {
+  try {
+    let url = "/api/agents/tasks";
+    if (courseInstanceId) {
+      url += `?courseInstanceId=${courseInstanceId}`;
+    }
+    const response = await axiosInstance.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data; // Expects { success: true, data: tasks[] }
+  } catch (error) {
+    console.error(
+      "Error fetching agent tasks:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+}
+
+/**
+ * Get a single agent task by its ID
+ * @param {string} taskId - The ID of the task
+ * @param {string} token - Auth token
+ */
+export async function getTask(taskId, token) {
+  try {
+    const response = await axiosInstance.get(`/api/agents/tasks/${taskId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data; // Expects { success: true, data: task }
+  } catch (error) {
+    console.error(
+      `Error fetching agent task ${taskId}:`,
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+}
+
+/**
+ * Adds a message to a task's conversation.
+ * @param {string} taskId - The ID of the task.
+ * @param {object} messageData - The message object (e.g., { role: 'user', content: 'Hello' }).
+ * @param {string} token - Auth token.
+ */
+export async function addMessageToTask(taskId, messageData, token) {
+  try {
+    const response = await axiosInstance.post(
+      `/api/agents/tasks/${taskId}/messages`,
+      { message: messageData }, // Backend controller expects { message: { role, content } }
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data; // Expects { success: true, conversation: updatedConversation }
+  } catch (error) {
+    console.error(
+      `Error adding message to task ${taskId}:`,
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+}
+
+/**
+ * Deletes an agent task by its ID.
+ * @param {string} taskId - The ID of the task to delete.
+ * @param {string} token - Auth token.
+ */
+export async function deleteAgentTask(taskId, token) {
+  try {
+    const response = await axiosInstance.delete(
+      `/api/agents/tasks/${taskId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data; // Expects { success: true, message: "..." }
+  } catch (error) {
+    console.error(
+      `Error deleting agent task ${taskId}:`,
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+}
+
+/**
+ * Get agent templates.
+ * @param {string} token - Auth token.
+ * @param {string|null} agentType - Optional agent type to filter templates.
+ */
+export async function getAgentTemplates(token, agentType = null) {
+  try {
+    let url = "/api/agents/templates";
+    if (agentType) {
+      url += `?agentType=${agentType}`;
+    }
+    const response = await axiosInstance.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data; // Expects { success: true, data: templates[] }
+  } catch (error) {
+    console.error(
+      "Error fetching agent templates:",
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+}
+
+/**
+ * Cancels a running agent task.
+ * @param {string} taskId - The ID of the task to cancel.
+ * @param {string} token - Auth token.
+ */
+export async function cancelAgentTask(taskId, token) {
+  try {
+    const response = await axiosInstance.post(
+      `/api/agents/tasks/${taskId}/cancel`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data; // Expects { success: true, message: "...", task: updatedTask }
+  } catch (error) {
+    console.error(
+      `Error cancelling agent task ${taskId}:`,
+      error.response?.data || error.message
+    );
+    throw error.response?.data || error;
+  }
+}
+
+/**
+ * Generate an AI-powered title for a task based on file content
+ * @param {string} token - Auth token
+ * @param {Array} files - Array of file objects with fileId, fileName, mimeType, fileSize
+ * @param {string} agentType - Type of agent (note-taker, researcher, etc.)
+ * @returns {Promise<Object>} Generated title response
+ */
+export async function generateTaskTitle(token, files, agentType) {
+  try {
+    const response = await axios.post(
+      `${API_URL}/api/agents/tasks/generate-title`,
+      {
+        files,
+        agentType,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("[API] Error generating task title:", error);
+    throw error;
+  }
 }

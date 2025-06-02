@@ -14,24 +14,28 @@ const { verifyWebhook } = require("@clerk/express");
 const syllabusRoutes = require("./routes/syllabus.routes");
 const todoRoutes = require("./routes/todo.route");
 const agentRoutes = require("./routes/agent.routes");
+const agentTaskQueue = require("./services/queues/agentTaskQueue");
+const agentTaskWorker = require("./services/workers/agentTaskWorker");
 const app = express();
 
 // Request timeout middleware
-const requestTimeout = (timeout = 30000) => (req, res, next) => {
-  const timer = setTimeout(() => {
-    if (!res.headersSent) {
-      res.status(408).json({ 
-        success: false, 
-        error: "Request timeout",
-        message: "The request took too long to process" 
-      });
-    }
-  }, timeout);
+const requestTimeout =
+  (timeout = 30000) =>
+  (req, res, next) => {
+    const timer = setTimeout(() => {
+      if (!res.headersSent) {
+        res.status(408).json({
+          success: false,
+          error: "Request timeout",
+          message: "The request took too long to process",
+        });
+      }
+    }, timeout);
 
-  res.on("finish", () => clearTimeout(timer));
-  res.on("close", () => clearTimeout(timer));
-  next();
-};
+    res.on("finish", () => clearTimeout(timer));
+    res.on("close", () => clearTimeout(timer));
+    next();
+  };
 
 // Middleware config
 app.use(compression()); // Enable gzip compression
@@ -54,10 +58,12 @@ app.use(clerkMiddleware());
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
-  res.on('finish', () => {
+  res.on("finish", () => {
     const duration = Date.now() - start;
     if (duration > 5000) {
-      console.warn(`Slow request: ${req.method} ${req.path} took ${duration}ms`);
+      console.warn(
+        `Slow request: ${req.method} ${req.path} took ${duration}ms`
+      );
     }
   });
   next();
@@ -239,16 +245,10 @@ mongoose
         );
       await mongoose.connection.db
         .collection("todos")
-        .createIndex(
-          { userId: 1, courseInstanceId: 1 },
-          { background: true }
-        );
+        .createIndex({ userId: 1, courseInstanceId: 1 }, { background: true });
       await mongoose.connection.db
         .collection("todos")
-        .createIndex(
-          { todoId: 1 },
-          { unique: true, background: true }
-        );
+        .createIndex({ todoId: 1 }, { unique: true, background: true });
       console.log("Database indexes created successfully");
     } catch (indexError) {
       console.log(
@@ -259,9 +259,51 @@ mongoose
 
     app.listen(8000, () => {
       console.log("Server is running on port 8000 successfully");
+
+      // Start processing agent tasks in the same process
+      console.log("[Agent] Starting agent task processor...");
+      agentTaskQueue.queue.process("process-agent-task", 2, async (job) => {
+        return await agentTaskWorker.processTask(job);
+      });
+
+      // Queue event handlers
+      agentTaskQueue.queue.on("error", (error) => {
+        console.error("[Agent] Queue error:", error);
+      });
+
+      agentTaskQueue.queue.on("active", (job) => {
+        console.log(`[Agent] Job ${job.id} has started processing`);
+      });
+
+      agentTaskQueue.queue.on("completed", (job, result) => {
+        console.log(`[Agent] Job ${job.id} completed successfully`);
+      });
+
+      agentTaskQueue.queue.on("failed", (job, err) => {
+        console.error(`[Agent] Job ${job.id} failed:`, err.message);
+      });
+
+      console.log("[Agent] Agent task processor started successfully");
     });
   })
   .catch((error) => {
     console.log("Connection failed:", error.message);
     process.exit(1);
   });
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, closing server...");
+  await agentTaskWorker.shutdown();
+  await agentTaskQueue.close();
+  await mongoose.connection.close();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log("SIGINT received, closing server...");
+  await agentTaskWorker.shutdown();
+  await agentTaskQueue.close();
+  await mongoose.connection.close();
+  process.exit(0);
+});

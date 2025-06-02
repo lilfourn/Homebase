@@ -1,5 +1,5 @@
 const NoteTakerAgent = require("./noteTakerAgent");
-// const ResearcherAgent = require("./researcherAgent");
+const ResearcherAgent = require("./researcherAgent");
 // const StudyBuddyAgent = require("./studyBuddyAgent");
 // const AssignmentAgent = require("./assignmentAgent");
 
@@ -7,15 +7,25 @@ class AgentOrchestrator {
   constructor() {
     this.agents = {
       "note-taker": NoteTakerAgent,
-      // "researcher": ResearcherAgent,
+      researcher: ResearcherAgent,
       // "study-buddy": StudyBuddyAgent,
       // "assignment": AssignmentAgent
     };
     this.logger = console;
   }
 
-  async processTask({ taskId, userId, courseInstanceId, agentType, config, files, progressCallback }) {
-    this.logger.info(`[AgentOrchestrator] Processing task ${taskId} with agent ${agentType}`);
+  async processTask({
+    taskId,
+    userId,
+    courseInstanceId,
+    agentType,
+    config,
+    files,
+    progressCallback,
+  }) {
+    this.logger.info(
+      `[AgentOrchestrator] Processing task ${taskId} with agent ${agentType}`
+    );
 
     // Get the appropriate agent class
     const AgentClass = this.agents[agentType];
@@ -24,8 +34,9 @@ class AgentOrchestrator {
     }
 
     // Determine LLM provider based on config or default
-    const llmProvider = config.llmProvider || process.env.DEFAULT_LLM_PROVIDER || "openai";
-    
+    const llmProvider =
+      config.llmProvider || process.env.DEFAULT_LLM_PROVIDER || "openai";
+
     // Create agent instance
     const agent = new AgentClass(llmProvider);
 
@@ -38,8 +49,16 @@ class AgentOrchestrator {
       currentStep: "start",
       progress: 0,
       messages: [],
-      ...config // Merge agent-specific config
+      ...config, // Merge agent-specific config
     };
+
+    // Debug log the files being passed
+    this.logger.info(`[AgentOrchestrator] Files debug:`, {
+      filesCount: files ? files.length : "undefined",
+      filesPresent: !!files,
+      firstFileKeys: files && files[0] ? Object.keys(files[0]) : "no files",
+      taskId,
+    });
 
     // Set up progress tracking
     if (progressCallback) {
@@ -50,7 +69,9 @@ class AgentOrchestrator {
       // Execute the agent workflow
       const result = await agent.execute(initialState);
 
-      this.logger.info(`[AgentOrchestrator] Task ${taskId} completed successfully`);
+      this.logger.info(
+        `[AgentOrchestrator] Task ${taskId} completed successfully`
+      );
 
       return {
         content: result.result.content,
@@ -58,7 +79,7 @@ class AgentOrchestrator {
         metadata: result.result.metadata,
         tokensUsed: result.tokensUsed,
         cost: result.cost,
-        model: llmProvider
+        model: llmProvider,
       };
     } catch (error) {
       this.logger.error(`[AgentOrchestrator] Task ${taskId} failed:`, error);
@@ -75,18 +96,17 @@ class AgentOrchestrator {
         configOptions: {
           noteStyle: ["bullet", "outline", "paragraph"],
           summaryLength: ["brief", "moderate", "detailed"],
-          includeFormulas: true
-        }
+          includeFormulas: true,
+        },
       },
-      "researcher": {
+      researcher: {
         name: "Researcher",
         description: "Analyzes multiple documents for research insights",
         configOptions: {
           analysisDepth: ["quick", "moderate", "deep"],
           compareSources: true,
-          extractCitations: true
+          extractCitations: true,
         },
-        comingSoon: true
       },
       "study-buddy": {
         name: "Study Buddy",
@@ -94,21 +114,21 @@ class AgentOrchestrator {
         configOptions: {
           materialTypes: ["flashcards", "quiz", "summary"],
           difficulty: ["easy", "medium", "hard"],
-          questionCount: 20
+          questionCount: 20,
         },
-        comingSoon: true
+        comingSoon: true,
       },
-      "assignment": {
+      assignment: {
         name: "Assignment Assistant",
         description: "Helps plan and structure assignments",
         configOptions: {
           assignmentType: ["essay", "report", "presentation"],
           includeOutline: true,
           suggestThesis: true,
-          citationStyle: ["APA", "MLA", "Chicago"]
+          citationStyle: ["APA", "MLA", "Chicago"],
         },
-        comingSoon: true
-      }
+        comingSoon: true,
+      },
     };
   }
 }

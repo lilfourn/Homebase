@@ -501,12 +501,6 @@ exports.getMatchedTA = async (req, res) => {
       syllabus.parsedData.contacts = [];
     }
 
-    console.log("Syllabus contacts:", syllabus.parsedData.contacts);
-    console.log("User info for matching:", {
-      lastName: user.lastName,
-      studentId: user.studentId,
-    });
-
     // Get the matching result
     const matchResult = TAMatchingService.getDetailedMatch(
       user,

@@ -1,14 +1,15 @@
-const { requireAuth } = require('@clerk/express');
+const { requireAuth } = require("@clerk/express");
 
 // Extract user ID from Clerk auth
 const extractUserId = (req, res, next) => {
-  if (req.auth && req.auth.userId) {
-    req.userId = req.auth.userId;
+  const authContext = req.auth();
+  if (authContext && authContext.userId) {
+    req.userId = authContext.userId;
   }
   next();
 };
 
 module.exports = {
   requireAuth,
-  extractUserId
+  extractUserId,
 };
