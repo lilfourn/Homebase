@@ -101,11 +101,15 @@ class AgentOrchestrator {
       },
       researcher: {
         name: "Researcher",
-        description: "Analyzes multiple documents for research insights",
+        description:
+          "Analyzes multiple documents for research insights with web search capabilities",
         configOptions: {
-          analysisDepth: ["quick", "moderate", "deep"],
+          researchDepth: ["surface", "moderate", "deep"],
+          includeWebSearch: true,
+          includeCitations: true,
           compareSources: true,
-          extractCitations: true,
+          specificQuestions: [], // User can provide specific research questions
+          webSearchQueries: [], // User can provide specific search queries
         },
       },
       "study-buddy": {

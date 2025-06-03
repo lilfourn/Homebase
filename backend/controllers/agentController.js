@@ -622,6 +622,86 @@ const agentController = {
         .json({ success: false, error: "Failed to get dashboard data" });
     }
   },
+
+  /**
+   * Test web search functionality
+   */
+  async testWebSearch(req, res) {
+    try {
+      const authData = req.auth();
+      const userId = authData.userId;
+      const { query, testExtraction = true } = req.body;
+
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          error: "Search query is required",
+        });
+      }
+
+      const webSearchService = require("../services/webSearchService");
+
+      // Check if web search is available
+      if (!webSearchService.isAvailable()) {
+        const providers = webSearchService.getProviders();
+        return res.status(503).json({
+          success: false,
+          error:
+            "Web search service is not available. Please configure API keys.",
+          providers: providers,
+          message:
+            "You need both a search provider (preferably Brave) and content extractor (preferably Tavily)",
+        });
+      }
+
+      const providers = webSearchService.getProviders();
+
+      if (
+        testExtraction &&
+        providers.searchProvider &&
+        providers.contentExtractor
+      ) {
+        // Test the full search and extract workflow
+        console.log(
+          `[testWebSearch] Testing full workflow with query: ${query}`
+        );
+        const searchResults = await webSearchService.searchAndExtract(query, {
+          num: 5, // Get top 5 search results
+          extractCount: 3, // Extract content from top 3
+          depth: "advanced",
+        });
+
+        res.json({
+          success: true,
+          testMode: "full",
+          providers: providers,
+          results: searchResults,
+        });
+      } else {
+        // Test just the search functionality
+        console.log(`[testWebSearch] Testing search only with query: ${query}`);
+        const searchResults = await webSearchService.searchForUrls(query, {
+          num: 5, // Get top 5 results
+        });
+
+        res.json({
+          success: true,
+          testMode: "search-only",
+          providers: providers,
+          results: searchResults,
+          message: testExtraction
+            ? "Content extraction not available - showing search results only"
+            : "Search test completed",
+        });
+      }
+    } catch (error) {
+      console.error("[AgentController] Error testing web search:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to perform web search",
+      });
+    }
+  },
 };
 
 const mongoose = require("mongoose"); // Ensure mongoose is available for ObjectId.isValid checks etc.

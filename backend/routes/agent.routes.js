@@ -65,4 +65,7 @@ router.get(
   agentController.getQueueDashboard
 );
 
+// Test web search functionality
+router.post("/test-web-search", requireAuth(), agentController.testWebSearch);
+
 module.exports = router;

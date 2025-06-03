@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth, useUser } from "@clerk/nextjs";
-import { AlertCircle, Loader2, X } from "lucide-react";
+import { AlertCircle, BookOpen, ClipboardCheck, FileText, GraduationCap, Loader2, Plus, Search, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { generateTaskTitle } from "../../../api/agents.api";
 import { getImportedFiles } from "../../../api/googleDrive.api";
@@ -9,7 +9,6 @@ import { fetchUserByClerkId } from "../../../api/users.api";
 import { useAgents } from "../../../hooks/agents/useAgents";
 import AgentConfig from "../agent/AgentConfig";
 import { AgentErrorBoundary } from "../agent/AgentErrorBoundary";
-import AgentTypeSelector from "../agent/AgentTypeSelector";
 import FileLibrary from "../agent/FileLibrary";
 import PastCompletions from "../agent/PastCompletions";
 
@@ -144,6 +143,7 @@ export default function AgentsTab({ course }: AgentsTabProps) {
   const [courseFiles, setCourseFiles] = useState<SelectedFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const [showFileModal, setShowFileModal] = useState(false);
 
   // Convert tasks to completions format
   const completions = React.useMemo(() => 
@@ -252,6 +252,18 @@ export default function AgentsTab({ course }: AgentsTabProps) {
     course.courseInstanceId,
   ]); // Removed fetchTasks, fetchUsage from deps as context handles initial general load
 
+  // Get the 3 most recent files for this course
+  const recentCourseFiles = React.useMemo(() => {
+    return courseFiles
+      .filter(file => (file as any).courseId === course._id)
+      .sort((a, b) => {
+        // Sort by upload date (newest first) - assuming there's a timestamp
+        // If no timestamp, files will maintain their original order
+        return 0; // TODO: Add proper date sorting when timestamp field is available
+      })
+      .slice(0, 3);
+  }, [courseFiles, course._id]);
+
   const handleFileSelect = (files: SelectedFile[]) => {
     console.log("[AgentsTab] Files selected", { count: files.length, files });
     setSelectedFiles(files);
@@ -342,6 +354,33 @@ export default function AgentsTab({ course }: AgentsTabProps) {
       console.error("[AgentsTab] Error during task creation", error);
     }
   };
+
+  const agentTypes = [
+    {
+      id: 'note-taker',
+      name: 'Note Taker',
+      description: 'Extract key points',
+      icon: <BookOpen className="w-4 h-4" />
+    },
+    {
+      id: 'researcher', 
+      name: 'Researcher',
+      description: 'Analyze & research',
+      icon: <Search className="w-4 h-4" />
+    },
+    {
+      id: 'study-buddy',
+      name: 'Study Buddy',
+      description: 'Create study materials',
+      icon: <GraduationCap className="w-4 h-4" />
+    },
+    {
+      id: 'assignment',
+      name: 'Assignment',
+      description: 'Complete assignments',
+      icon: <ClipboardCheck className="w-4 h-4" />
+    }
+  ];
 
   return (
     <AgentErrorBoundary>
@@ -493,127 +532,324 @@ export default function AgentsTab({ course }: AgentsTabProps) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* File Library Section */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3
-                className="text-lg font-semibold mb-4"
-                style={{ color: courseColors.primary }}
-              >
-                File Library
-              </h3>
-              <FileLibrary
-                onFileSelect={handleFileSelect}
-                selectedFiles={selectedFiles}
-                courseColors={courseColors}
-                isDisabled={isLoading || currentlyProcessingTask !== null}
-                courseFiles={courseFiles}
-                filesLoading={filesLoading}
-                courseId={course._id}
-                onFilesUploaded={loadCourseFiles}
-              />
-            </div>
-
-            {/* Agent Configuration Section */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3
-                className="text-lg font-semibold mb-4"
-                style={{ color: courseColors.primary }}
-              >
-                Agent Configuration
-              </h3>
-
-              {selectedFiles.length > 0 && (
-                <>
-                  <div
-                    className="mb-4 p-3 rounded-md"
-                    style={{ backgroundColor: courseColors.secondary + "10" }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        Selected: {selectedFiles.length} file(s)
-                      </span>
-                      {isLoading && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Processing...</span>
-                        </div>
-                      )}
+          <>
+            {/* Bento Box Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Files Section */}
+              <div className="bg-white rounded-xl shadow-sm border p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Files</h3>
+                
+                {/* Recent Files Display - Show when there are recent files */}
+                {recentCourseFiles.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">Recently uploaded</p>
+                    <div className="space-y-2">
+                      {recentCourseFiles.map((file) => {
+                        const isSelected = selectedFiles.some(f => f.id === file.id);
+                        return (
+                          <button
+                            key={file.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedFiles(selectedFiles.filter(f => f.id !== file.id));
+                              } else {
+                                setSelectedFiles([...selectedFiles, file]);
+                              }
+                            }}
+                            className={`
+                              w-full flex items-center gap-2 p-2 rounded-lg transition-all text-left
+                              ${isSelected 
+                                ? 'bg-gray-50' 
+                                : 'bg-gray-50 hover:bg-gray-100'
+                              }
+                            `}
+                            style={{
+                              boxShadow: isSelected ? `0 0 0 2px ${courseColors.primary}` : undefined,
+                            }}
+                          >
+                            <FileText className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="text-xs text-gray-700 truncate flex-1">{file.name}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
+                )}
+                
+                {/* Selected files that aren't in recent files */}
+                {(() => {
+                  const additionalSelectedFiles = selectedFiles.filter(
+                    selected => !recentCourseFiles.some(recent => recent.id === selected.id)
+                  );
+                  return additionalSelectedFiles.length > 0 ? (
+                    <div className="mb-3">
+                      {recentCourseFiles.length > 0 && <div className="border-t border-gray-100 mb-3" />}
+                      <p className="text-xs text-gray-500 mb-2">Also selected</p>
+                      <div className="space-y-2">
+                        {additionalSelectedFiles.map((file) => (
+                          <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <FileText className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <span className="text-xs text-gray-700 truncate">{file.name}</span>
+                            </div>
+                            <button
+                              onClick={() => setSelectedFiles(selectedFiles.filter(f => f.id !== file.id))}
+                              className="text-gray-400 hover:text-gray-600 ml-2"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                
+                {/* Show "No files selected" only when there are no recent files and no selected files */}
+                {recentCourseFiles.length === 0 && selectedFiles.length === 0 && (
+                  <p className="text-xs text-gray-500 mb-3">No files selected</p>
+                )}
 
-                  <AgentTypeSelector
-                    value={selectedAgentType}
-                    onChange={setSelectedAgentType}
-                    courseColors={courseColors}
-                    isDisabled={isLoading || currentlyProcessingTask !== null}
-                  />
+                <button
+                  onClick={() => setShowFileModal(true)}
+                  disabled={isLoading || currentlyProcessingTask !== null}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    {selectedFiles.length > 0 ? 'Add More Files' : 'Select Files'}
+                  </span>
+                </button>
+              </div>
 
-                  {selectedAgentType && (
-                    <div className="mt-4">
+              {/* Agent Selection */}
+              <div className="bg-white rounded-xl shadow-sm border p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Agent Type</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {agentTypes.map((agent) => (
+                    <button
+                      key={agent.id}
+                      onClick={() => setSelectedAgentType(agent.id)}
+                      disabled={isLoading || currentlyProcessingTask !== null}
+                      className={`
+                        p-3 rounded-lg border-2 transition-all text-left
+                        ${selectedAgentType === agent.id 
+                          ? 'border-opacity-100 shadow-sm' 
+                          : 'border-gray-200 hover:border-gray-300'}
+                        ${isLoading || currentlyProcessingTask !== null ? 'opacity-50 cursor-not-allowed' : ''}
+                      `}
+                      style={{
+                        borderColor: selectedAgentType === agent.id ? courseColors.primary : undefined,
+                        backgroundColor: selectedAgentType === agent.id ? courseColors.primary + '08' : undefined
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div 
+                          className="p-1.5 rounded-md"
+                          style={{ 
+                            backgroundColor: selectedAgentType === agent.id ? courseColors.primary + '15' : '#f3f4f6',
+                            color: selectedAgentType === agent.id ? courseColors.primary : '#6b7280'
+                          }}
+                        >
+                          {agent.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-900">{agent.name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{agent.description}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Configuration & Submit */}
+              <div className="bg-white rounded-xl shadow-sm border p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  {selectedAgentType ? 'Configuration' : 'Get Started'}
+                </h3>
+                
+                {selectedAgentType ? (
+                  <>
+                    <div className="mb-4 max-h-64 overflow-y-auto">
                       <AgentConfig
                         agentType={selectedAgentType}
                         config={agentConfig}
                         onChange={setAgentConfig}
                         courseColors={courseColors}
-                        isDisabled={
-                          isLoading || currentlyProcessingTask !== null
-                        }
+                        isDisabled={isLoading || currentlyProcessingTask !== null}
                       />
+                    </div>
+                    
+                    <button
+                      onClick={handleAgentSubmit}
+                      disabled={
+                        isLoading || 
+                        isGeneratingTitle || 
+                        currentlyProcessingTask !== null || 
+                        !selectedAgentType || 
+                        selectedFiles.length === 0
+                      }
+                      className="w-full px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      style={{
+                        backgroundColor:
+                          isLoading || isGeneratingTitle || currentlyProcessingTask || !selectedAgentType || selectedFiles.length === 0
+                            ? "#9ca3af"
+                            : courseColors.primary,
+                        boxShadow:
+                          !isLoading && !isGeneratingTitle && !currentlyProcessingTask && selectedAgentType && selectedFiles.length > 0
+                            ? `0 2px 8px ${courseColors.primary}30`
+                            : "none",
+                      }}
+                    >
+                      {isGeneratingTitle ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Generating Title...</span>
+                        </>
+                      ) : isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Processing...</span>
+                        </>
+                      ) : currentlyProcessingTask ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Agent Busy...</span>
+                        </>
+                      ) : (
+                        <span>Process Files</span>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 mb-2">Select files and choose an agent to begin</p>
+                    <p className="text-xs text-gray-400">AI agents help you process and analyze your documents</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
-                      <button
-                        onClick={handleAgentSubmit}
-                        disabled={isLoading || isGeneratingTitle || currentlyProcessingTask !== null || !selectedAgentType || selectedFiles.length === 0}
-                        className="w-full mt-4 px-4 py-2 text-white font-medium rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          backgroundColor:
-                            isLoading || isGeneratingTitle || currentlyProcessingTask
-                              ? "#6b7280"
-                              : courseColors.primary,
-                          boxShadow:
-                            !isLoading && !isGeneratingTitle && !currentlyProcessingTask
-                              ? `0 4px 12px ${courseColors.primary}40`
-                              : "none",
-                        }}
-                      >
-                        {isGeneratingTitle ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Generating Title...
-                          </span>
-                        ) : isLoading ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Processing...
-                          </span>
-                        ) : currentlyProcessingTask ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Agent Busy...
-                          </span>
-                        ) : (
-                          "Send"
-                        )}
-                      </button>
+            {/* File Selection Modal */}
+            {showFileModal && (
+              <div
+                className="fixed inset-0 w-screen h-screen flex items-center justify-center p-4 z-50"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  backdropFilter: "blur(4px)",
+                  WebkitBackdropFilter: "blur(4px)",
+                }}
+              >
+                <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+                  <div className="mb-6">
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-3">
+                      Select Files
+                    </h2>
+                    <p className="text-gray-600">
+                      Choose files from your Google Drive to process with AI agents. You can select multiple files at once.
+                    </p>
+                  </div>
+                  
+                  {/* Recent Files Section */}
+                  {recentCourseFiles.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">Recent uploads for this course</h3>
+                      <div className="grid grid-cols-1 gap-2">
+                        {recentCourseFiles.map((file) => {
+                          const isSelected = selectedFiles.some(f => f.id === file.id);
+                          return (
+                            <button
+                              key={file.id}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedFiles(selectedFiles.filter(f => f.id !== file.id));
+                                } else {
+                                  setSelectedFiles([...selectedFiles, file]);
+                                }
+                              }}
+                              className={`
+                                flex items-center gap-3 p-3 rounded-lg border transition-all text-left
+                                ${isSelected 
+                                  ? 'border-gray-900 bg-gray-50' 
+                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                }
+                              `}
+                            >
+                              <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {file.type.toUpperCase()} • {(file.size / 1024).toFixed(1)}KB
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <div 
+                                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: courseColors.primary }}
+                                >
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 border-t pt-3">
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">All files</h3>
+                      </div>
                     </div>
                   )}
-                </>
-              )}
+                  
+                  <div className="flex-1 overflow-y-auto min-h-0 mb-6">
+                    <FileLibrary
+                      onFileSelect={(files) => {
+                        setSelectedFiles(files);
+                      }}
+                      selectedFiles={selectedFiles}
+                      courseColors={courseColors}
+                      isDisabled={false}
+                      courseFiles={courseFiles}
+                      filesLoading={filesLoading}
+                      courseId={course._id}
+                      onFilesUploaded={() => {
+                        loadCourseFiles();
+                      }}
+                    />
+                  </div>
 
-              {selectedFiles.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">
-                    Select files from the library to configure an agent
-                  </p>
+                  <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                    <button
+                      onClick={() => setShowFileModal(false)}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowFileModal(false);
+                      }}
+                      disabled={selectedFiles.length === 0}
+                      className="px-4 py-2 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      style={{
+                        backgroundColor: selectedFiles.length === 0 ? "#9ca3af" : courseColors.primary,
+                      }}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Select {selectedFiles.length > 0 && `(${selectedFiles.length})`}
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Past Completions Section - Show only if connected */}
         {isGoogleDriveConnected && !checkingConnection && (
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3
               className="text-lg font-semibold mb-4"
               style={{ color: courseColors.primary }}
