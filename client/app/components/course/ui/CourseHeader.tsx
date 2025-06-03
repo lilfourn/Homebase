@@ -16,17 +16,19 @@ export const CourseHeader = ({ course }: CourseHeaderProps) => {
   const Icon = getIcon();
 
   return (
-    <div className="p-6 sm:p-8 border-b border-gray-200">
+    <div className="p-8 border-b border-gray-100">
       <div className="flex items-center">
-        <Icon
-          className="w-12 h-12 sm:w-16 sm:h-16 mr-4 sm:mr-6 text-[var(--custom-primary-color)]"
-          aria-label={`${course.name} icon`}
-        />
+        <div className="w-16 h-16 rounded-2xl bg-[var(--custom-primary-color)] flex items-center justify-center mr-6">
+          <Icon
+            className="w-8 h-8 text-white"
+            aria-label={`${course.name} icon`}
+          />
+        </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+          <h1 className="text-3xl font-light text-gray-900">
             {course.name}
           </h1>
-          <p className="text-lg sm:text-xl text-[var(--custom-primary-color)] font-semibold">
+          <p className="text-lg text-gray-500 font-medium mt-1">
             {course.code}
           </p>
         </div>

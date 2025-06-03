@@ -8,12 +8,16 @@ const {
   updateUserSchoolAndColors,
   updateUserCustomColors,
   updateUserNameInfo,
+  getUserAgentStats,
   upload,
 } = require("../controllers/user.controller");
 const router = express.Router();
 
 // view all users
 router.get("/", viewUsers);
+
+// get user agent stats
+router.get("/:userId/agent-stats", getUserAgentStats);
 
 // get user by clerk ID
 router.get("/:userId", getUserByClerkId);

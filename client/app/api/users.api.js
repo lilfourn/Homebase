@@ -142,3 +142,12 @@ export async function updateUserCustomThemeColors(
   }
   return res.json();
 }
+
+export async function fetchUserAgentStats(userId) {
+  const res = await fetch(`${API_URL}/api/users/${userId}/agent-stats`, {
+    credentials: "include",
+  });
+
+  if (!res.ok) throw new Error(`Fetch agent stats error: ${res.status}`);
+  return res.json();
+}

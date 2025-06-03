@@ -15,6 +15,7 @@ import {
   fetchUserByClerkId,
   updateUserCustomThemeColors,
 } from "../../api/users.api";
+import AgentUsageStats from "../../components/settings/AgentUsageStats";
 import GoogleDriveSettings from "../../components/settings/GoogleDriveSettings";
 import UniversitySelection from "../../components/settings/UniversitySelection";
 import { Button } from "../../components/ui/button";
@@ -441,6 +442,7 @@ function SettingsContent() {
             onDataChange={handleDataUpdate}
           />
           <GoogleDriveSettings />
+          <AgentUsageStats />
         </div>
       </main>
       <SaveToast onDataUpdate={handleDataUpdate} />

@@ -167,6 +167,66 @@ const UserSchema = mongoose.Schema(
         },
       },
     ],
+
+    // Agent Usage Statistics
+    agentStats: {
+      noteTaker: {
+        notesCreated: {
+          type: Number,
+          default: 0,
+        },
+        lastUsed: {
+          type: Date,
+          default: null,
+        },
+        totalTimesSaved: {
+          type: Number,
+          default: 0,
+        }
+      },
+      researcher: {
+        topicsResearched: {
+          type: Number,
+          default: 0,
+        },
+        lastUsed: {
+          type: Date,
+          default: null,
+        },
+        papersAnalyzed: {
+          type: Number,
+          default: 0,
+        }
+      },
+      flashcardMaker: {
+        flashcardsCreated: {
+          type: Number,
+          default: 0,
+        },
+        lastUsed: {
+          type: Date,
+          default: null,
+        },
+        decksCreated: {
+          type: Number,
+          default: 0,
+        }
+      },
+      homeworkAssistant: {
+        problemsSolved: {
+          type: Number,
+          default: 0,
+        },
+        lastUsed: {
+          type: Date,
+          default: null,
+        },
+        assignmentsCompleted: {
+          type: Number,
+          default: 0,
+        }
+      }
+    },
   },
   {
     timestamps: true,

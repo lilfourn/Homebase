@@ -380,6 +380,54 @@ const updateUserNameInfo = async (req, res) => {
   }
 };
 
+const getUserAgentStats = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    const user = await User.findOne({ userId }).select('agentStats');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return agent stats with default values if not present
+    const agentStats = user.agentStats || {
+      noteTaker: {
+        notesCreated: 0,
+        lastUsed: null,
+        totalTimesSaved: 0
+      },
+      researcher: {
+        topicsResearched: 0,
+        lastUsed: null,
+        papersAnalyzed: 0
+      },
+      flashcardMaker: {
+        flashcardsCreated: 0,
+        lastUsed: null,
+        decksCreated: 0
+      },
+      homeworkAssistant: {
+        problemsSolved: 0,
+        lastUsed: null,
+        assignmentsCompleted: 0
+      }
+    };
+
+    res.status(200).json({
+      success: true,
+      agentStats
+    });
+  } catch (error) {
+    console.error("Error fetching user agent stats:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   viewUsers,
   updateUserSchool,
@@ -388,5 +436,6 @@ module.exports = {
   updateUserSchoolAndColors,
   updateUserCustomColors,
   updateUserNameInfo,
+  getUserAgentStats,
   upload, // multer instance
 };

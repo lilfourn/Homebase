@@ -6,20 +6,20 @@ export const SyllabusPrompt = ({
 }: SyllabusPromptProps) => {
   return (
     <div
-      className={`p-4 bg-blue-50 border border-blue-200 rounded-md flex flex-col sm:flex-row items-center justify-between ${className}`}
+      className={`p-6 bg-[var(--custom-primary-color)] bg-opacity-5 border border-[var(--custom-primary-color)] border-opacity-20 rounded-xl flex flex-col sm:flex-row items-center justify-between ${className}`}
     >
       <div>
-        <h3 className="text-lg font-semibold text-blue-700">
+        <h3 className="text-lg font-medium text-gray-900">
           Syllabus Missing
         </h3>
-        <p className="text-blue-600 text-sm">
+        <p className="text-gray-600 text-sm mt-1">
           Upload your course syllabus to automatically extract due dates,
           contacts, and more.
         </p>
       </div>
       <button
         onClick={onShowModal}
-        className="mt-3 sm:mt-0 px-4 py-2 bg-[var(--custom-primary-color)] text-white rounded-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--custom-primary-color)] cursor-pointer text-sm"
+        className="mt-4 sm:mt-0 px-6 py-2.5 bg-[var(--custom-primary-color)] text-white rounded-xl hover:bg-opacity-90 transition-all duration-200 cursor-pointer text-sm font-medium"
       >
         Upload Syllabus
       </button>

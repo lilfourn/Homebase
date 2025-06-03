@@ -213,7 +213,10 @@ const agentController = {
           .json({ success: false, error: "Researcher agent requires either files or a research prompt" });
       }
 
-      await hybridDataService.validateCourseOwnership(userId, courseInstanceId);
+      // Course ownership validation is now optional
+      if (courseInstanceId) {
+        await hybridDataService.validateCourseOwnership(userId, courseInstanceId);
+      }
       
       // Handle files validation - skip for researcher with prompt only
       let validatedMongoFiles = [];
@@ -343,6 +346,60 @@ const agentController = {
         return res
           .status(404)
           .json({ success: false, error: "Task not found for status update" });
+      }
+
+      // Update user stats when task completes successfully
+      if (status === "completed" && updatedTask.userId) {
+        try {
+          const agentType = updatedTask.agentType;
+          const updateQuery = {};
+          
+          // Update stats based on agent type
+          if (agentType === 'note-taker') {
+            updateQuery['agentStats.noteTaker.notesCreated'] = 1;
+            updateQuery['agentStats.noteTaker.lastUsed'] = new Date();
+          } else if (agentType === 'researcher') {
+            updateQuery['agentStats.researcher.topicsResearched'] = 1;
+            updateQuery['agentStats.researcher.lastUsed'] = new Date();
+            // Count files as papers analyzed
+            if (updatedTask.files && updatedTask.files.length > 0) {
+              updateQuery['agentStats.researcher.papersAnalyzed'] = updatedTask.files.length;
+            }
+          } else if (agentType === 'flashcard-maker') {
+            updateQuery['agentStats.flashcardMaker.flashcardsCreated'] = 1;
+            updateQuery['agentStats.flashcardMaker.lastUsed'] = new Date();
+          } else if (agentType === 'homework-assistant') {
+            updateQuery['agentStats.homeworkAssistant.problemsSolved'] = 1;
+            updateQuery['agentStats.homeworkAssistant.lastUsed'] = new Date();
+          }
+          
+          // Use $inc to increment counters
+          const incFields = {};
+          const setFields = {};
+          
+          Object.keys(updateQuery).forEach(key => {
+            if (key.includes('lastUsed')) {
+              setFields[key] = updateQuery[key];
+            } else {
+              incFields[key] = updateQuery[key];
+            }
+          });
+          
+          const userUpdate = {};
+          if (Object.keys(incFields).length > 0) userUpdate.$inc = incFields;
+          if (Object.keys(setFields).length > 0) userUpdate.$set = setFields;
+          
+          if (Object.keys(userUpdate).length > 0) {
+            await User.findOneAndUpdate(
+              { userId: updatedTask.userId },
+              userUpdate
+            );
+            console.log(`[AgentController] Updated user stats for ${agentType}`);
+          }
+        } catch (statsError) {
+          console.error("[AgentController] Error updating user stats:", statsError);
+          // Don't fail the main request if stats update fails
+        }
       }
 
       console.log("[AgentController] Task status updated in MongoDB:", {
