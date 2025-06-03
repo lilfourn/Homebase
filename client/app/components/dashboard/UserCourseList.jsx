@@ -1,12 +1,11 @@
 "use client";
 
-import { SidebarContext } from "@/app/components/ui/sidebar";
 import { useCourses } from "@/app/context/CourseContext";
 import * as LucideIcons from "lucide-react";
 import { Folder, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useState } from "react";
 
 const COURSE_COLORS = [
   "bg-blue-500",
@@ -30,7 +29,6 @@ const getCourseColor = (index) => {
 export default function UserCourseList() {
   const { courses, error, loading, deleteCourse } = useCourses();
   const [isDeleting, setIsDeleting] = useState(false);
-  const { expanded } = useContext(SidebarContext);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,44 +54,13 @@ export default function UserCourseList() {
 
   if (loading)
     return (
-      <p className="text-sm text-gray-500">
-        <Loader2 className="h-4 w-4 animate-spin inline mr-1" /> Loading...
-      </p>
-    );
-  if (error) return <p className="text-sm text-red-500">Error: {error}</p>;
-  if (!courses.length) {
-    if (!expanded) {
-      return (
-        <div className="flex justify-center">
-          <p className="text-xs text-gray-400">0</p>
-        </div>
-      );
-    }
-    return <p className="text-sm text-gray-500">No courses yet.</p>;
-  }
-
-  if (!expanded) {
-    return (
-      <div className="flex flex-wrap gap-1.5 justify-center max-w-12">
-        {courses.map((c, index) => {
-          const Icon =
-            c.icon && LucideIcons[c.icon] ? LucideIcons[c.icon] : Folder;
-          return (
-            <Link
-              key={c._id}
-              href={`/dashboard/course/${c.courseInstanceId}`}
-              className="flex items-center justify-center cursor-pointer"
-              title={`${c.name} (${c.code})`}
-            >
-              <Icon
-                className={`w-3 h-3 flex-shrink-0`}
-                style={{ color: "var(--custom-primary-color, inherit)" }}
-              />
-            </Link>
-          );
-        })}
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
       </div>
     );
+  if (error) return <p className="text-sm text-red-500 px-2">Error: {error}</p>;
+  if (!courses.length) {
+    return <p className="text-sm text-gray-400 text-center py-4">No courses yet</p>;
   }
 
   return (
@@ -105,22 +72,24 @@ export default function UserCourseList() {
           return (
             <li
               key={c._id}
-              className={`flex justify-between items-center bg-white hover:bg-gray-50 rounded-md text-sm transition-colors shadow-sm w-full`}
+              className={`group flex justify-between items-center bg-gray-50 hover:bg-gray-100 rounded-xl text-sm transition-all duration-200 w-full`}
             >
               <Link
                 href={`/dashboard/course/${c.courseInstanceId}`}
-                className={`flex-grow p-2 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap cursor-pointer opacity-100 flex items-center gap-2`}
+                className={`flex-grow py-3 px-4 overflow-hidden transition-all duration-200 whitespace-nowrap cursor-pointer opacity-100 flex items-center gap-3`}
               >
-                <Icon
-                  className={`w-4 h-4`}
-                  style={{ color: "var(--custom-primary-color, inherit)" }}
-                />
-                <span>{c.name}</span>
+                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
+                  <Icon
+                    className={`w-4 h-4`}
+                    style={{ color: "var(--custom-primary-color, inherit)" }}
+                  />
+                </div>
+                <span className="font-medium text-gray-700 group-hover:text-gray-900">{c.name}</span>
               </Link>
               <button
                 onClick={() => handleDelete(c._id)}
                 disabled={isDeleting}
-                className="text-red-500 hover:text-red-600 p-1 mr-2 rounded-full hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-2 mr-2 rounded-lg hover:bg-red-50 transition-all duration-200 cursor-pointer disabled:opacity-50 flex-shrink-0"
                 aria-label="Delete course"
               >
                 {isDeleting ? (

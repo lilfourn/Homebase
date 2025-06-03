@@ -49,7 +49,7 @@ export default function AgentConfig({
         return (
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-2 block">
+              <label className="text-sm font-medium text-gray-700 mb-3 block">
                 Output Style
               </label>
               <div className="grid grid-cols-1 gap-2">
@@ -76,8 +76,8 @@ export default function AgentConfig({
                       flex items-center p-3 rounded-lg border cursor-pointer transition-all
                       ${
                         config.noteStyle === option.value
-                          ? "border-gray-900 bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
+                          ? "bg-white border-purple-500 shadow-sm"
+                          : "bg-white border-gray-200 hover:border-gray-300"
                       }
                       ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
                     `}
@@ -107,7 +107,7 @@ export default function AgentConfig({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-700 block">
+              <label className="text-sm font-medium text-gray-700 block">
                 Additional Options
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -146,7 +146,7 @@ export default function AgentConfig({
         return (
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-2 block">
+              <label className="text-sm font-medium text-gray-700 mb-3 block">
                 Research Depth
               </label>
               <div className="grid grid-cols-1 gap-2">
@@ -173,8 +173,8 @@ export default function AgentConfig({
                       flex items-center p-3 rounded-lg border cursor-pointer transition-all
                       ${
                         (config.researchDepth || "moderate") === option.value
-                          ? "border-gray-900 bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
+                          ? "bg-white border-blue-500 shadow-sm"
+                          : "bg-white border-gray-200 hover:border-gray-300"
                       }
                       ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
                     `}
@@ -206,7 +206,7 @@ export default function AgentConfig({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-700 block">
+              <label className="text-sm font-medium text-gray-700 block">
                 Research Options
               </label>
               <label className="flex items-center gap-2 cursor-pointer">

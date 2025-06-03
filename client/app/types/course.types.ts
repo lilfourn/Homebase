@@ -32,7 +32,7 @@ export interface UserData {
 }
 
 // Tab types
-export type TabType = "overview" | "tasks" | "library" | "agents";
+export type TabType = "overview" | "tasks" | "library";
 
 // Component props
 export interface CourseHeaderProps {

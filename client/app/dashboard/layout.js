@@ -13,7 +13,7 @@ import {
 import { TASetupProvider } from "@/app/context/TASetupContext";
 import { AgentProvider } from "@/app/context/AgentContext";
 import { useUser } from "@clerk/nextjs";
-import { BookCopy, Settings, User } from "lucide-react";
+import { BookCopy, Settings, User, Bot } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -180,6 +180,7 @@ export default function DashboardLayout({ children }) {
   // Determine active states based on current path
   const isSchoolActive = pathname === "/dashboard";
   const isClassesActive = pathname.startsWith("/dashboard/classes");
+  const isAgentsActive = pathname.startsWith("/dashboard/agents");
   const isProfileActive = pathname.startsWith("/dashboard/profile");
   const isSettingsActive = pathname.startsWith("/dashboard/settings");
 
@@ -206,6 +207,12 @@ export default function DashboardLayout({ children }) {
                   <AddCourseForm />
                 </div>
               }
+            />
+            <SidebarItem
+              icon={<Bot size={25} />}
+              text="AI Agents"
+              active={isAgentsActive}
+              href="/dashboard/agents"
             />
             <SidebarItem
               icon={<User size={25} />}

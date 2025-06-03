@@ -382,13 +382,14 @@ export async function cancelAgentTask(taskId, token) {
  * @param {string} agentType - Type of agent (note-taker, researcher, etc.)
  * @returns {Promise<Object>} Generated title response
  */
-export async function generateTaskTitle(token, files, agentType) {
+export async function generateTaskTitle(token, files, agentType, researchPrompt = null) {
   try {
     const response = await axios.post(
       `${API_URL}/api/agents/tasks/generate-title`,
       {
         files,
         agentType,
+        researchPrompt,
       },
       {
         headers: {

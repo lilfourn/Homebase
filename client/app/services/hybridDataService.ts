@@ -6,7 +6,9 @@
  * and provides a unified interface for data operations.
  */
 
-import { Id } from "../../convex/_generated/dataModel";
+// Convex has been removed from the project
+// Using string type for IDs instead of Convex Id type
+type Id<T extends string> = string;
 
 export interface MongoFileReference {
   fileId: string;

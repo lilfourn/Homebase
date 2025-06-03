@@ -67,10 +67,28 @@ const agentController = {
       const authData = req.auth();
       const userId = authData.userId;
 
-      if (!files || files.length === 0 || !agentType) {
+      // For researcher agent, files are optional if research prompt is provided
+      if (!agentType) {
         return res.status(400).json({
           success: false,
-          error: "Files and agent type are required",
+          error: "Agent type is required",
+        });
+      }
+      
+      // If no files provided, use research prompt for title generation (researcher only)
+      if ((!files || files.length === 0) && agentType === 'researcher' && req.body.researchPrompt) {
+        const title = `Research: ${req.body.researchPrompt.substring(0, 50)}${req.body.researchPrompt.length > 50 ? '...' : ''}`;
+        return res.json({
+          success: true,
+          title,
+          isDefault: false,
+        });
+      }
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Files are required for this agent type",
         });
       }
 
@@ -176,18 +194,36 @@ const agentController = {
       const authData = req.auth();
       const userId = authData.userId;
 
-      if (!agentType || !files || files.length === 0) {
+      // For researcher agent, files are optional if research prompt is provided
+      if (!agentType) {
         return res
           .status(400)
-          .json({ success: false, error: "Agent type and files are required" });
+          .json({ success: false, error: "Agent type is required" });
+      }
+      
+      if (agentType !== 'researcher' && (!files || files.length === 0)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Files are required for this agent type" });
+      }
+      
+      if (agentType === 'researcher' && (!files || files.length === 0) && !config?.researchPrompt) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Researcher agent requires either files or a research prompt" });
       }
 
       await hybridDataService.validateCourseOwnership(userId, courseInstanceId);
-      const fileIds = files.map((f) => f.fileId);
-      const validatedMongoFiles = await hybridDataService.validateFilesForTask(
-        userId,
-        fileIds
-      );
+      
+      // Handle files validation - skip for researcher with prompt only
+      let validatedMongoFiles = [];
+      if (files && files.length > 0) {
+        const fileIds = files.map((f) => f.fileId);
+        validatedMongoFiles = await hybridDataService.validateFilesForTask(
+          userId,
+          fileIds
+        );
+      }
 
       const usageStats = await hybridDataService.getUserUsageStats(userId);
       if (usageStats.remainingTasks <= 0) {
@@ -196,6 +232,9 @@ const agentController = {
           .json({ success: false, error: "Monthly task limit reached" });
       }
 
+      // Extract mode and model from config if present, put rest in customSettings
+      const { mode, model, ...customSettings } = config || {};
+      
       const taskDataForMongo = {
         userId,
         courseInstanceId,
@@ -204,7 +243,11 @@ const agentController = {
           `${agentType.replace("-", " ")} Task - ${new Date().toLocaleTimeString()}`,
         agentType: agentType.toLowerCase().replace(" ", "-"),
         status: "queued",
-        config: config || {},
+        config: {
+          mode: mode || undefined,
+          model: model || undefined,
+          customSettings: customSettings || {}
+        },
         files: validatedMongoFiles.map((f) => ({
           // Map to AgentFileSchema structure
           fileId: f.id,

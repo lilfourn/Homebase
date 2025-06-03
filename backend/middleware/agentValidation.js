@@ -51,62 +51,73 @@ const validateAgentTask = (req, res, next) => {
   //   return res.status(400).json({ success: false, error: 'config.model must be a string if provided' });
   // }
 
-  // Validate files
-  if (!files || !Array.isArray(files) || files.length === 0) {
-    return res.status(400).json({
-      success: false,
-      error: "At least one file is required",
-    });
-  }
-
-  // Validate file size limits
-  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
-  const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB total
-
-  let totalSize = 0;
-  for (const file of files) {
-    if (!file.fileId || !file.fileName) {
+  // Validate files - for researcher agent, files are optional if researchPrompt is provided
+  if (agentType === 'researcher' && config.researchPrompt) {
+    // Researcher with prompt doesn't require files
+    if (!files) {
+      req.body.files = []; // Set empty array if not provided
+    }
+  } else {
+    // Other agents or researcher without prompt require files
+    if (!files || !Array.isArray(files) || files.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "Each file must have fileId and fileName",
+        error: "At least one file is required",
+      });
+    }
+  }
+
+  // Only validate files if they exist
+  if (files && Array.isArray(files) && files.length > 0) {
+    // Validate file size limits
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
+    const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB total
+
+    let totalSize = 0;
+    for (const file of files) {
+      if (!file.fileId || !file.fileName) {
+        return res.status(400).json({
+          success: false,
+          error: "Each file must have fileId and fileName",
+        });
+      }
+
+      if (file.fileSize > MAX_FILE_SIZE) {
+        return res.status(400).json({
+          success: false,
+          error: `File ${file.fileName} exceeds 50MB limit`,
+        });
+      }
+
+      totalSize += file.fileSize || 0;
+    }
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      return res.status(400).json({
+        success: false,
+        error: "Total file size exceeds 200MB limit",
       });
     }
 
-    if (file.fileSize > MAX_FILE_SIZE) {
-      return res.status(400).json({
-        success: false,
-        error: `File ${file.fileName} exceeds 50MB limit`,
-      });
-    }
+    // Validate file types
+    const allowedMimeTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "text/plain",
+      "text/markdown",
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+    ];
 
-    totalSize += file.fileSize || 0;
-  }
-
-  if (totalSize > MAX_TOTAL_SIZE) {
-    return res.status(400).json({
-      success: false,
-      error: "Total file size exceeds 200MB limit",
-    });
-  }
-
-  // Validate file types
-  const allowedMimeTypes = [
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "text/plain",
-    "text/markdown",
-    "image/png",
-    "image/jpeg",
-    "image/jpg",
-  ];
-
-  for (const file of files) {
-    if (!file.mimeType || !allowedMimeTypes.includes(file.mimeType)) {
-      return res.status(400).json({
-        success: false,
-        error: `File type ${file.mimeType} is not supported`,
-      });
+    for (const file of files) {
+      if (!file.mimeType || !allowedMimeTypes.includes(file.mimeType)) {
+        return res.status(400).json({
+          success: false,
+          error: `File type ${file.mimeType} is not supported`,
+        });
+      }
     }
   }
 

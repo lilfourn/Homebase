@@ -34,7 +34,6 @@ import {
 } from "@/app/components/course";
 import { LastNameModal } from "@/app/components/course/LastNameModal";
 import { TasksTab } from "@/app/components/course/tabs/TasksTab";
-import AgentsTab from "@/app/components/course/tabs/AgentsTab";
 import { TASetupModal } from "@/app/components/course/TASetupModal";
 import { TodoUrgencyAlert } from "@/app/components/course/todos/TodoUrgencyAlert";
 import { useTASetup } from "@/app/context/TASetupContext";
@@ -278,8 +277,6 @@ export default function CoursePage() {
             showToast={showToast}
           />
         );
-      case "agents":
-        return <AgentsTab course={course} />;
       default:
         return null;
     }

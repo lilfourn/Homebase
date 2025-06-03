@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth, useUser } from "@clerk/nextjs";
-import { AlertCircle, BookOpen, ClipboardCheck, FileText, GraduationCap, Loader2, Plus, Search, X } from "lucide-react";
+import { AlertCircle, BookOpen, ClipboardCheck, FileText, GraduationCap, Loader2, Plus, Search, X, Brain, FileSearch, MessageSquare, Zap } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { generateTaskTitle } from "../../../api/agents.api";
 import { getImportedFiles } from "../../../api/googleDrive.api";
@@ -144,6 +144,8 @@ export default function AgentsTab({ course }: AgentsTabProps) {
   const [filesLoading, setFilesLoading] = useState(true);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [showFileModal, setShowFileModal] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [researchPrompt, setResearchPrompt] = useState<string>("");
 
   // Convert tasks to completions format
   const completions = React.useMemo(() => 
@@ -269,6 +271,13 @@ export default function AgentsTab({ course }: AgentsTabProps) {
     setSelectedFiles(files);
   };
 
+  const handleAgentCardClick = (agentId: string) => {
+    if (agentTypes.find(a => a.id === agentId)?.available) {
+      setSelectedAgentType(agentId);
+      setShowAgentModal(true);
+    }
+  };
+
   const handleAgentSubmit = async () => {
     console.log("[AgentsTab] Submit clicked", {
       selectedAgentType,
@@ -276,7 +285,14 @@ export default function AgentsTab({ course }: AgentsTabProps) {
       agentConfig,
     });
 
-    if (!selectedAgentType || selectedFiles.length === 0) {
+    // Validation: researcher needs either prompt or files, others need files
+    if (selectedAgentType === 'researcher') {
+      if (!researchPrompt && selectedFiles.length === 0) {
+        console.warn("[AgentsTab] Researcher validation failed - needs prompt or files");
+        alert("Please enter a research topic or select files to analyze.");
+        return;
+      }
+    } else if (!selectedAgentType || selectedFiles.length === 0) {
       console.warn("[AgentsTab] Submit validation failed", {
         hasAgentType: !!selectedAgentType,
         hasFiles: selectedFiles.length > 0,
@@ -308,7 +324,8 @@ export default function AgentsTab({ course }: AgentsTabProps) {
               fileSize: f.size,
               mimeType: (f as any).mimeType || `application/${f.type}`,
             })),
-            selectedAgentType
+            selectedAgentType,
+            selectedAgentType === 'researcher' ? researchPrompt : null
           );
           
           if (titleResponse.success && titleResponse.title) {
@@ -332,7 +349,10 @@ export default function AgentsTab({ course }: AgentsTabProps) {
         courseInstanceId: course.courseInstanceId,
         taskName,
         agentType: selectedAgentType.toLowerCase().replace(" ", "-"),
-        config: agentConfig,
+        config: {
+          ...agentConfig,
+          ...(selectedAgentType === 'researcher' && researchPrompt ? { researchPrompt } : {})
+        },
         files: selectedFiles.map((f) => ({ 
           fileId: f.id,
           fileName: f.name,
@@ -343,10 +363,12 @@ export default function AgentsTab({ course }: AgentsTabProps) {
 
       await createTask(taskData);
 
-      // Reset form
+      // Reset form and close modal
       setSelectedFiles([]);
       setSelectedAgentType("");
       setAgentConfig({});
+      setResearchPrompt("");
+      setShowAgentModal(false);
 
       // Refresh usage
       fetchUsage();
@@ -359,26 +381,38 @@ export default function AgentsTab({ course }: AgentsTabProps) {
     {
       id: 'note-taker',
       name: 'Note Taker',
-      description: 'Extract key points',
-      icon: <BookOpen className="w-4 h-4" />
+      description: 'Extracts and organizes key information from your documents into structured notes',
+      icon: <FileText className="w-8 h-8" />,
+      gradient: 'from-purple-400 to-pink-400',
+      shadowGradient: 'from-purple-200/50 to-pink-200/50',
+      available: true
     },
     {
       id: 'researcher', 
       name: 'Researcher',
-      description: 'Analyze & research',
-      icon: <Search className="w-4 h-4" />
+      description: 'Analyzes multiple documents for research insights with web search capabilities',
+      icon: <FileSearch className="w-8 h-8" />,
+      gradient: 'from-blue-400 to-cyan-400',
+      shadowGradient: 'from-blue-200/50 to-cyan-200/50',
+      available: true
     },
     {
       id: 'study-buddy',
       name: 'Study Buddy',
-      description: 'Create study materials',
-      icon: <GraduationCap className="w-4 h-4" />
+      description: 'Creates study materials, flashcards, and practice questions from your content',
+      icon: <Brain className="w-8 h-8" />,
+      gradient: 'from-green-400 to-teal-400',
+      shadowGradient: 'from-green-200/50 to-teal-200/50',
+      available: false
     },
     {
       id: 'assignment',
-      name: 'Assignment',
-      description: 'Complete assignments',
-      icon: <ClipboardCheck className="w-4 h-4" />
+      name: 'Assignment Assistant',
+      description: 'Helps plan, structure, and develop your assignments with proper citations',
+      icon: <Zap className="w-8 h-8" />,
+      gradient: 'from-orange-400 to-yellow-400',
+      shadowGradient: 'from-orange-200/50 to-yellow-200/50',
+      available: false
     }
   ];
 
@@ -533,48 +567,174 @@ export default function AgentsTab({ course }: AgentsTabProps) {
           </div>
         ) : (
           <>
-            {/* Bento Box Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Files Section */}
-              <div className="bg-white rounded-xl shadow-sm border p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Files</h3>
-                
-                {/* Recent Files Display - Show when there are recent files */}
-                {recentCourseFiles.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs text-gray-500 mb-2">Recently uploaded</p>
-                    <div className="space-y-2">
-                      {recentCourseFiles.map((file) => {
-                        const isSelected = selectedFiles.some(f => f.id === file.id);
-                        return (
-                          <button
-                            key={file.id}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedFiles(selectedFiles.filter(f => f.id !== file.id));
-                              } else {
-                                setSelectedFiles([...selectedFiles, file]);
-                              }
-                            }}
-                            className={`
-                              w-full flex items-center gap-2 p-2 rounded-lg transition-all text-left
-                              ${isSelected 
-                                ? 'bg-gray-50' 
-                                : 'bg-gray-50 hover:bg-gray-100'
-                              }
-                            `}
-                            style={{
-                              boxShadow: isSelected ? `0 0 0 2px ${courseColors.primary}` : undefined,
-                            }}
-                          >
-                            <FileText className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                            <span className="text-xs text-gray-700 truncate flex-1">{file.name}</span>
-                          </button>
-                        );
-                      })}
+            {/* Agent Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {agentTypes.map((agent) => (
+                <div
+                  key={agent.id}
+                  onClick={() => handleAgentCardClick(agent.id)}
+                  className={`
+                    relative group cursor-pointer transition-all duration-300 transform hover:scale-105
+                    ${!agent.available ? 'opacity-60 cursor-not-allowed hover:scale-100' : ''}
+                  `}
+                >
+                  {/* Gradient Shadow */}
+                  <div 
+                    className={`
+                      absolute inset-0 bg-gradient-to-r ${agent.shadowGradient} 
+                      blur-xl opacity-50 group-hover:opacity-70 transition-opacity duration-300
+                      rounded-2xl transform translate-y-4
+                    `}
+                  />
+                  
+                  {/* Card Content */}
+                  <div className="relative bg-white rounded-2xl p-6 border border-gray-100 shadow-lg h-full flex flex-col">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className={`p-3 rounded-xl bg-gradient-to-r ${agent.gradient} text-white flex-shrink-0`}>
+                        {agent.icon}
+                      </div>
+                      <div className="flex-1 flex flex-col">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          {agent.name}
+                        </h3>
+                        <p className="text-sm text-gray-600 leading-relaxed flex-1">
+                          {agent.description}
+                        </p>
+                        {!agent.available && (
+                          <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-xs text-gray-500">
+                            Coming Soon
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
+              ))}
+            </div>
+
+            {/* Agent Configuration Modal */}
+            {showAgentModal && selectedAgentType && (
+              <div
+                className="fixed inset-0 w-screen h-screen flex items-center justify-center p-4 z-50"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                }}
+              >
+                <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+                  {/* Modal Header */}
+                  <div className="px-8 py-6 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900">
+                          Configure {agentTypes.find(a => a.id === selectedAgentType)?.name}
+                        </h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Select files and configure your agent to get started.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowAgentModal(false);
+                          setSelectedFiles([]);
+                          setAgentConfig({});
+                          setResearchPrompt("");
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <X className="w-5 h-5 text-gray-500" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto px-8 py-6">
+                    {/* Research Prompt Section - Only for Researcher Agent */}
+                    {selectedAgentType === 'researcher' && (
+                      <div className="mb-6">
+                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-100">
+                          <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <Search className="w-5 h-5 text-blue-600" />
+                            Research Topic
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-4">
+                            What would you like to research? Be specific about your topic or question.
+                          </p>
+                          <textarea
+                            value={researchPrompt}
+                            onChange={(e) => setResearchPrompt(e.target.value)}
+                            placeholder="e.g., 'Compare the environmental impact of electric vs hydrogen vehicles' or 'Analyze the role of artificial intelligence in modern healthcare'"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
+                            rows={3}
+                            disabled={isLoading || currentlyProcessingTask !== null}
+                          />
+                          <p className="text-xs text-gray-500 mt-2">
+                            Files below are optional and will be used as additional context for your research.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Files Section */}
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-gray-600" />
+                          Files {selectedAgentType === 'researcher' && <span className="text-xs text-gray-500 font-normal">(Optional)</span>}
+                        </h3>
+                        
+                        {/* Recent Files Display - Show when there are recent files */}
+                        {recentCourseFiles.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-sm text-gray-600 mb-3">Recently uploaded</p>
+                            <div className="space-y-2">
+                              {recentCourseFiles.map((file) => {
+                                const isSelected = selectedFiles.some(f => f.id === file.id);
+                                const selectedAgent = agentTypes.find(a => a.id === selectedAgentType);
+                                return (
+                                  <button
+                                    key={file.id}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedFiles(selectedFiles.filter(f => f.id !== file.id));
+                                      } else {
+                                        setSelectedFiles([...selectedFiles, file]);
+                                      }
+                                    }}
+                                    className={`
+                                      w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left
+                                      ${isSelected 
+                                        ? 'bg-white border-2' 
+                                        : 'bg-white hover:bg-gray-50 border border-gray-200'
+                                      }
+                                    `}
+                                    style={{
+                                      borderColor: isSelected 
+                                        ? selectedAgent?.gradient.includes('purple') ? '#a855f7' 
+                                          : selectedAgent?.gradient.includes('blue') ? '#3b82f6'
+                                          : selectedAgent?.gradient.includes('green') ? '#10b981'
+                                          : '#f97316'
+                                        : undefined,
+                                    }}
+                                  >
+                                    <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                    <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
+                                    {isSelected && (
+                                      <div className="w-2 h-2 rounded-full bg-gradient-to-r" 
+                                        style={{
+                                          background: selectedAgent?.gradient.includes('purple') ? '#a855f7' 
+                                            : selectedAgent?.gradient.includes('blue') ? '#3b82f6'
+                                            : selectedAgent?.gradient.includes('green') ? '#10b981'
+                                            : '#f97316'
+                                        }}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                 
                 {/* Selected files that aren't in recent files */}
                 {(() => {
@@ -610,126 +770,150 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                   <p className="text-xs text-gray-500 mb-3">No files selected</p>
                 )}
 
-                <button
-                  onClick={() => setShowFileModal(true)}
-                  disabled={isLoading || currentlyProcessingTask !== null}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="text-sm font-medium">
-                    {selectedFiles.length > 0 ? 'Add More Files' : 'Select Files'}
-                  </span>
-                </button>
+                        <button
+                          onClick={() => setShowFileModal(true)}
+                          disabled={isLoading || currentlyProcessingTask !== null}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 rounded-lg border border-dashed border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-700">
+                            {selectedFiles.length > 0 ? 'Add More Files' : 'Select Files'}
+                          </span>
+                        </button>
               </div>
 
-              {/* Agent Selection */}
-              <div className="bg-white rounded-xl shadow-sm border p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Agent Type</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {agentTypes.map((agent) => (
-                    <button
-                      key={agent.id}
-                      onClick={() => setSelectedAgentType(agent.id)}
-                      disabled={isLoading || currentlyProcessingTask !== null}
-                      className={`
-                        p-3 rounded-lg border-2 transition-all text-left
-                        ${selectedAgentType === agent.id 
-                          ? 'border-opacity-100 shadow-sm' 
-                          : 'border-gray-200 hover:border-gray-300'}
-                        ${isLoading || currentlyProcessingTask !== null ? 'opacity-50 cursor-not-allowed' : ''}
-                      `}
-                      style={{
-                        borderColor: selectedAgentType === agent.id ? courseColors.primary : undefined,
-                        backgroundColor: selectedAgentType === agent.id ? courseColors.primary + '08' : undefined
-                      }}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div 
-                          className="p-1.5 rounded-md"
-                          style={{ 
-                            backgroundColor: selectedAgentType === agent.id ? courseColors.primary + '15' : '#f3f4f6',
-                            color: selectedAgentType === agent.id ? courseColors.primary : '#6b7280'
-                          }}
-                        >
-                          {agent.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-900">{agent.name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{agent.description}</p>
+                      {/* Agent Selection */}
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Zap className="w-5 h-5 text-gray-600" />
+                          Agent Type
+                        </h3>
+                        <div className="grid grid-cols-1 gap-3">
+                          {agentTypes.filter(agent => agent.available).map((agent) => {
+                            const isSelected = selectedAgentType === agent.id;
+                            return (
+                              <button
+                                key={agent.id}
+                                onClick={() => setSelectedAgentType(agent.id)}
+                                disabled={isLoading || currentlyProcessingTask !== null || !agent.available}
+                                className={`
+                                  p-4 rounded-lg transition-all text-left relative overflow-hidden
+                                  ${isSelected 
+                                    ? 'bg-white shadow-md' 
+                                    : 'bg-white hover:shadow-sm'}
+                                  ${isLoading || currentlyProcessingTask !== null ? 'opacity-50 cursor-not-allowed' : ''}
+                                `}
+                              >
+                                {isSelected && (
+                                  <div 
+                                    className={`absolute inset-0 bg-gradient-to-r ${agent.gradient} opacity-5`}
+                                  />
+                                )}
+                                <div className="relative flex items-start gap-3">
+                                  <div className={`p-2 rounded-lg bg-gradient-to-r ${agent.gradient} text-white`}>
+                                    {React.cloneElement(agent.icon, { className: "w-5 h-5" })}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-semibold text-gray-900">{agent.name}</p>
+                                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">{agent.description}</p>
+                                  </div>
+                                  {isSelected && (
+                                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${agent.gradient} flex-shrink-0 mt-2`} />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                    </button>
-                  ))}
+
+                      {/* Configuration */}
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <MessageSquare className="w-5 h-5 text-gray-600" />
+                          Configuration
+                        </h3>
+                        
+                        <div className="mb-6">
+                          <AgentConfig
+                            agentType={selectedAgentType}
+                            config={agentConfig}
+                            onChange={setAgentConfig}
+                            courseColors={courseColors}
+                            isDisabled={isLoading || currentlyProcessingTask !== null}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="px-8 py-6 border-t border-gray-100 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-600">
+                        {selectedAgentType === 'researcher' && researchPrompt && (
+                          <span className="mr-3">Research topic provided</span>
+                        )}
+                        {selectedFiles.length > 0 && (
+                          <span>{selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            setShowAgentModal(false);
+                            setSelectedFiles([]);
+                            setAgentConfig({});
+                            setResearchPrompt("");
+                          }}
+                          className="px-6 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleAgentSubmit}
+                          disabled={
+                            isLoading || 
+                            isGeneratingTitle || 
+                            currentlyProcessingTask !== null || 
+                            !selectedAgentType || 
+                            (selectedAgentType === 'researcher' 
+                              ? (!researchPrompt && selectedFiles.length === 0)
+                              : selectedFiles.length === 0)
+                          }
+                          className={`
+                            px-6 py-2.5 text-sm font-medium text-white rounded-lg transition-all 
+                            disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2
+                            ${selectedAgentType && agentTypes.find(a => a.id === selectedAgentType)?.gradient 
+                              ? `bg-gradient-to-r ${agentTypes.find(a => a.id === selectedAgentType)?.gradient}` 
+                              : 'bg-gray-400'}
+                          `}
+                        >
+                          {isGeneratingTitle ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Generating Title...</span>
+                            </>
+                          ) : isLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Processing...</span>
+                            </>
+                          ) : currentlyProcessingTask ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Agent Busy...</span>
+                            </>
+                          ) : (
+                            <span>Process Files</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Configuration & Submit */}
-              <div className="bg-white rounded-xl shadow-sm border p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                  {selectedAgentType ? 'Configuration' : 'Get Started'}
-                </h3>
-                
-                {selectedAgentType ? (
-                  <>
-                    <div className="mb-4 max-h-64 overflow-y-auto">
-                      <AgentConfig
-                        agentType={selectedAgentType}
-                        config={agentConfig}
-                        onChange={setAgentConfig}
-                        courseColors={courseColors}
-                        isDisabled={isLoading || currentlyProcessingTask !== null}
-                      />
-                    </div>
-                    
-                    <button
-                      onClick={handleAgentSubmit}
-                      disabled={
-                        isLoading || 
-                        isGeneratingTitle || 
-                        currentlyProcessingTask !== null || 
-                        !selectedAgentType || 
-                        selectedFiles.length === 0
-                      }
-                      className="w-full px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      style={{
-                        backgroundColor:
-                          isLoading || isGeneratingTitle || currentlyProcessingTask || !selectedAgentType || selectedFiles.length === 0
-                            ? "#9ca3af"
-                            : courseColors.primary,
-                        boxShadow:
-                          !isLoading && !isGeneratingTitle && !currentlyProcessingTask && selectedAgentType && selectedFiles.length > 0
-                            ? `0 2px 8px ${courseColors.primary}30`
-                            : "none",
-                      }}
-                    >
-                      {isGeneratingTitle ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Generating Title...</span>
-                        </>
-                      ) : isLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Processing...</span>
-                        </>
-                      ) : currentlyProcessingTask ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Agent Busy...</span>
-                        </>
-                      ) : (
-                        <span>Process Files</span>
-                      )}
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 mb-2">Select files and choose an agent to begin</p>
-                    <p className="text-xs text-gray-400">AI agents help you process and analyze your documents</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
 
             {/* File Selection Modal */}
             {showFileModal && (

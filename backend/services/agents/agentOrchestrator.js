@@ -49,7 +49,8 @@ class AgentOrchestrator {
       currentStep: "start",
       progress: 0,
       messages: [],
-      ...config, // Merge agent-specific config
+      customSettings: config, // Pass config as customSettings for agents
+      ...config, // Also spread config for backward compatibility
     };
 
     // Debug log the files being passed
@@ -57,6 +58,15 @@ class AgentOrchestrator {
       filesCount: files ? files.length : "undefined",
       filesPresent: !!files,
       firstFileKeys: files && files[0] ? Object.keys(files[0]) : "no files",
+      taskId,
+    });
+    
+    // Debug log the config
+    this.logger.info(`[AgentOrchestrator] Config debug:`, {
+      configPresent: !!config,
+      configKeys: config ? Object.keys(config) : [],
+      researchPrompt: config?.researchPrompt,
+      customSettingsInConfig: config?.customSettings,
       taskId,
     });
 
@@ -68,6 +78,16 @@ class AgentOrchestrator {
     try {
       // Execute the agent workflow
       const result = await agent.execute(initialState);
+
+      // Check if the agent failed and returned an error state
+      if (!result.result || result.error) {
+        const errorMsg = result.error || "Agent processing failed without result";
+        this.logger.error(
+          `[AgentOrchestrator] Task ${taskId} failed with error:`,
+          errorMsg
+        );
+        throw new Error(errorMsg);
+      }
 
       this.logger.info(
         `[AgentOrchestrator] Task ${taskId} completed successfully`

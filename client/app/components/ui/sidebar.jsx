@@ -31,59 +31,31 @@ import { createContext, useContext, useEffect, useState } from "react";
 export const SidebarContext = createContext();
 
 export default function Sidebar({ children }) {
-  const [expanded, setExpanded] = useState(true);
+  const expanded = true; // Always expanded
   return (
-    <aside
-      className={`h-screen ${
-        expanded ? "w-64" : "w-20"
-      } transition-all duration-300`}
-    >
-      <nav className="h-full flex flex-col bg-[#FFFBFC] border-r rounded-sm shadow-md">
-        <div className="p-4 pb-2 flex justify-between items-center">
-          <img
-            src="/brand/homebase2.png"
-            alt="Homebase Logo"
-            className={`overflow-hidden transition-all ${
-              expanded ? "w-26" : "w-0"
-            }`}
-          />
-          <button
-            onClick={() => setExpanded((curr) => !curr)}
-            className={`cursor-pointer overflow-hidden p-1.5 rounded-md hover:bg-gray-100 transition-all ${
-              expanded
-                ? ""
-                : "w-10 h-10 flex items-center justify-center mx-auto"
-            }`}
-          >
-            {expanded ? <ChevronFirst /> : <ChevronLast />}
-          </button>
-        </div>
-
+    <aside className="h-screen w-72 relative">
+      <nav className="h-full flex flex-col bg-white border-r border-gray-100 rounded-r-sm"
+        style={{
+          boxShadow: `0 0 50px -12px var(--custom-primary-color, #3B82F6)`,
+          overflow: 'hidden'
+        }}
+      >
         <SidebarContext.Provider value={{ expanded }}>
-          <ul className="flex-1 px-3 overflow-y-auto">{children}</ul>
+          <ul className="flex-1 px-4 py-4 overflow-y-auto">{children}</ul>
         </SidebarContext.Provider>
 
-        <div
-          className={`border-t flex p-3 ${expanded ? "" : "justify-center"}`}
-        >
-          <span className={`flex items-center ${expanded ? "" : "mx-auto"}`}>
+        <div className="border-t border-gray-100 p-4">
+          <div className="flex items-center space-x-3">
             <UserButton />
-          </span>
-          <Link
-            href="/payment"
-            className={cn(
-              "unlimited-credits-btn overflow-hidden transition-all duration-300 ease-in-out cursor-pointer flex justify-center items-center bg-blue-600 text-white rounded-md",
-              expanded ? "w-48 ml-3 p-3" : "w-0 ml-0 opacity-0"
-            )}
-          >
-            <button
-              className={`w-full cursor-pointer overflow-hidden whitespace-nowrap text-center font-bold text-sm ${
-                expanded ? "opacity-100" : "opacity-0"
-              }`}
+            <Link
+              href="/payment"
+              className="unlimited-credits-btn flex-1 p-3 flex justify-center items-center bg-[var(--custom-primary-color,#3B82F6)] text-white rounded-xl hover:shadow-lg cursor-pointer transition-all duration-300"
             >
-              Get Unlimited Credits
-            </button>
-          </Link>
+              <span className="font-semibold text-sm">
+                Get Unlimited Credits
+              </span>
+            </Link>
+          </div>
         </div>
       </nav>
     </aside>
@@ -107,14 +79,7 @@ export function SidebarItem({
   fetchKey,
   href,
 }) {
-  const { expanded } = useContext(SidebarContext);
   const [open, setOpen] = useState(defaultOpen);
-
-  useEffect(() => {
-    if (!expanded) {
-      setOpen(false);
-    }
-  }, [expanded]);
 
   const handleClick = () => {
     if (isDropdown) {
@@ -126,43 +91,41 @@ export function SidebarItem({
     <div
       onClick={handleClick}
       className={`flex ${
-        allowWrap && expanded ? "items-start" : "items-center"
-      } py-2 px-3 my-1 font-medium rounded-md cursor-pointer transition-colors
+        allowWrap ? "items-start" : "items-center"
+      } py-3 px-4 my-1 font-medium rounded-xl cursor-pointer transition-all duration-200
           ${
             active
-              ? "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-600 border border-blue-200"
-              : "hover:bg-gray-50"
-          }
-          ${expanded ? "" : "justify-center"}`}
+              ? "bg-[var(--custom-primary-color,#3B82F6)] text-white"
+              : "hover:bg-gray-50 text-gray-600 hover:text-gray-900"
+          }`}
     >
       <span
         className={`flex items-center justify-center ${
-          expanded ? "" : "mx-auto"
-        } ${allowWrap && expanded ? "mt-1" : ""}`}
+          allowWrap ? "mt-0.5" : ""
+        }`}
       >
         {icon}
       </span>
       <span
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          allowWrap && expanded
-            ? "break-words leading-tight"
+        className={`flex-1 ml-3 overflow-hidden ${
+          allowWrap
+            ? "break-words leading-relaxed"
             : "whitespace-nowrap"
-        } ${expanded ? "w-52 ml-3 opacity-100" : "w-0 opacity-0"}`}
+        }`}
       >
         {text}
       </span>
       {isDropdown && (
         <ChevronUp
-          className={`ml-auto transition-transform ${
-            expanded ? "" : "opacity-0"
-          } ${open ? "rotate-180" : ""}`}
+          size={16}
+          className={`ml-auto transition-transform duration-300 ${
+            open ? "rotate-180" : ""
+          }`}
         />
       )}
       {!isDropdown && alert && (
         <div
-          className={`absolute ${
-            expanded ? "right-2" : "right-1 top-1"
-          } w-2 h-2 rounded bg-blue-600`}
+          className="absolute right-3 w-2 h-2 rounded-full bg-white"
         />
       )}
     </div>
@@ -185,10 +148,10 @@ export function SidebarItem({
           )}
         >
           {items.map((item, idx) => (
-            <li key={idx} className="pl-8">
+            <li key={idx} className="pl-10">
               <Link
                 href={item.href}
-                className="flex items-center py-2 px-3 my-1 font-medium rounded-md cursor-pointer transition-colors hover:bg-gray-50"
+                className="flex items-center py-2.5 px-4 my-0.5 text-sm font-medium rounded-lg cursor-pointer transition-all duration-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               >
                 {item.icon && (
                   <span className="flex items-center justify-center">
@@ -202,14 +165,7 @@ export function SidebarItem({
             </li>
           ))}
           {customContent && (
-            <div
-              className={cn(
-                "transition-all duration-300",
-                expanded
-                  ? "opacity-100 pl-0"
-                  : "opacity-100 flex justify-center pl-0"
-              )}
-            >
+            <div className="transition-all duration-300 opacity-100 pl-0">
               {customContent}
             </div>
           )}

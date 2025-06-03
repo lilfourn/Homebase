@@ -43,39 +43,43 @@ class AgentTaskWorker {
       await job.progress(0);
 
       // Step 1: Download and process files (0-20%)
-      await this.updateTaskStatus(
-        taskId,
-        "processing",
-        10,
-        "Downloading files from Google Drive..."
-      );
-      await job.progress(10);
-
-      // Get user's Google Drive tokens
-      const user = await User.findOne({ userId: userId }).select(
-        "+googleDrive.accessToken +googleDrive.refreshToken"
-      ); // Include tokens in query
-
-      if (
-        !user ||
-        !user.googleDrive ||
-        !user.googleDrive.accessToken ||
-        !user.googleDrive.refreshToken
-      ) {
-        throw new Error(
-          "User Google Drive tokens not found. Please reconnect Google Drive in settings."
+      let filesWithContent = [];
+      let processedFiles = { files: [] };
+      
+      // Check if we have files to process
+      if (taskFilesFromDB && taskFilesFromDB.length > 0) {
+        await this.updateTaskStatus(
+          taskId,
+          "processing",
+          10,
+          "Downloading files from Google Drive..."
         );
-      }
+        await job.progress(10);
 
-      // Create tokens object for Google Drive API
-      const tokens = {
-        access_token: user.googleDrive.accessToken,
-        refresh_token: user.googleDrive.refreshToken,
-      };
+        // Get user's Google Drive tokens
+        const user = await User.findOne({ userId: userId }).select(
+          "+googleDrive.accessToken +googleDrive.refreshToken"
+        ); // Include tokens in query
 
-      // Download actual file content from Google Drive
-      const filesWithContent = [];
-      for (const taskFile of taskFilesFromDB) {
+        if (
+          !user ||
+          !user.googleDrive ||
+          !user.googleDrive.accessToken ||
+          !user.googleDrive.refreshToken
+        ) {
+          throw new Error(
+            "User Google Drive tokens not found. Please reconnect Google Drive in settings."
+          );
+        }
+
+        // Create tokens object for Google Drive API
+        const tokens = {
+          access_token: user.googleDrive.accessToken,
+          refresh_token: user.googleDrive.refreshToken,
+        };
+
+        // Download actual file content from Google Drive
+        for (const taskFile of taskFilesFromDB) {
         try {
           console.log(
             `[Worker] Downloading file: ${taskFile.fileName} (${taskFile.fileId})`
@@ -108,18 +112,28 @@ class AgentTaskWorker {
             `Failed to download file ${taskFile.fileName}: ${error.message}`
           );
         }
-      }
-
-      const processedFiles = await fileProcessingService.processFiles(
-        filesWithContent,
-        {
-          validateSizes: true,
-          extractMetadata: true,
-          deduplicateContent: true,
-          chunkContent: true,
-          performSecurityScan: true,
         }
-      );
+
+        processedFiles = await fileProcessingService.processFiles(
+          filesWithContent,
+          {
+            validateSizes: true,
+            extractMetadata: true,
+            deduplicateContent: true,
+            chunkContent: true,
+            performSecurityScan: true,
+          }
+        );
+      } else {
+        // No files to process (e.g., researcher with prompt only)
+        await this.updateTaskStatus(
+          taskId,
+          "processing",
+          10,
+          "No files to process..."
+        );
+        await job.progress(10);
+      }
 
       await this.updateTaskStatus(taskId, "processing", 20, "Files processed");
       await job.progress(20);

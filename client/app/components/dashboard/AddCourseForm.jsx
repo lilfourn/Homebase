@@ -10,14 +10,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/app/components/ui/dialog";
-import { SidebarContext } from "@/app/components/ui/sidebar";
 import { useCourses } from "@/app/context/CourseContext";
 import { Loader2, PlusCircle } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
 import LucideReactLibrary from "../ui/lucideReactLibrary";
 
 export default function AddCourseForm() {
-  const { expanded } = useContext(SidebarContext);
   const { addCourse } = useCourses();
 
   const [open, setOpen] = useState(false);
@@ -90,23 +88,12 @@ export default function AddCourseForm() {
       <DialogTrigger asChild>
         <Button
           variant="default"
-          size={expanded ? "default" : "icon"}
-          className={`cursor-pointer bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm ${
-            expanded
-              ? "w-full rounded-md"
-              : "w-8 h-8 p-0 rounded-md !flex !items-center !justify-center !gap-0"
-          }`}
+          className="cursor-pointer bg-[var(--custom-primary-color,#3B82F6)] hover:bg-opacity-90 text-white transition-all duration-200 w-full rounded-xl"
         >
-          <PlusCircle
-            className={`${expanded ? "h-5 w-5" : "h-4 w-4"} ${
-              expanded ? "" : "!m-0"
-            }`}
-          />
-          {expanded && (
-            <span className="overflow-hidden transition-all duration-300 ml-2 w-auto opacity-100">
-              Add Course
-            </span>
-          )}
+          <PlusCircle className="h-5 w-5" />
+          <span className="ml-2 font-medium">
+            Add Course
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md bg-white">
