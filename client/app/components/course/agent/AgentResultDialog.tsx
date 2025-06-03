@@ -1,7 +1,8 @@
 "use client";
 
-import { Edit, FileText, X } from "lucide-react";
+import { Download, Edit, FileText, X } from "lucide-react";
 import React from "react";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface AgentResultDialogProps {
   isOpen: boolean;
@@ -51,6 +52,18 @@ export default function AgentResultDialog({
     });
   };
 
+  const handleDownload = () => {
+    const blob = new Blob([result.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${taskName}.${result.format === "json" ? "json" : "md"}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -64,80 +77,96 @@ export default function AgentResultDialog({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-3xl flex flex-col"
+        className="bg-white rounded-lg shadow-xl w-full max-w-4xl flex flex-col"
         style={{ maxHeight: "calc(100vh - 4rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b flex items-start justify-between flex-shrink-0">
+        <div className="px-8 py-6 border-b flex items-start justify-between flex-shrink-0">
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-gray-800">{taskName}</h2>
-            <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
-              <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs font-medium">
+            <h1 className="text-2xl font-bold text-gray-900">{taskName}</h1>
+            <div className="flex items-center gap-3 text-sm text-gray-600 mt-2">
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                 {getAgentTypeLabel(agentType)}
               </span>
               <span>•</span>
               <span>{formatDate(completedAt)}</span>
+              <span>•</span>
+              <span>
+                {files.length} file{files.length !== 1 ? "s" : ""}
+              </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
           >
-            <X className="w-4 h-4 text-gray-500" />
+            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* Files Used Section */}
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">
-              Files Used
-            </h3>
-            <div className="space-y-1">
-              {files.map((file, index) => (
-                <div
-                  key={`${file.id || index}-${file.name}`}
-                  className="flex items-center gap-2 text-xs text-gray-600"
-                >
-                  <FileText className="w-3 h-3 flex-shrink-0" />
-                  <span className="truncate">{file.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Result Content */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Result</h3>
-            {result.format === "json" ? (
-              <pre className="bg-gray-50 p-3 rounded-md text-xs overflow-x-auto border border-gray-200">
-                {JSON.stringify(JSON.parse(result.content), null, 2)}
-              </pre>
-            ) : (
-              <div className="whitespace-pre-wrap text-xs bg-gray-50 p-3 rounded-md border border-gray-200">
-                {result.content}
+        {/* Content - Professional Document Style */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-8 py-6 max-w-4xl mx-auto">
+            {/* Files Used Section */}
+            <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Source Files
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {files.map((file, index) => (
+                  <div
+                    key={`${file.id || index}-${file.name}`}
+                    className="flex items-center gap-2 text-sm text-gray-600"
+                  >
+                    <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                    <span className="truncate">{file.name}</span>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+
+            {/* Result Content */}
+            <div className="bg-white">
+              {result.format === "json" ? (
+                <pre className="bg-gray-50 p-4 rounded-lg text-xs overflow-x-auto border border-gray-200 font-mono">
+                  {JSON.stringify(JSON.parse(result.content), null, 2)}
+                </pre>
+              ) : (
+                <MarkdownRenderer content={result.content} />
+              )}
+            </div>
           </div>
         </div>
 
         {/* Footer - Fixed at bottom */}
-        <div className="px-6 py-3 border-t bg-gray-50 flex-shrink-0 rounded-b-lg">
-          <div className="flex justify-end">
-            <button
-              onClick={() => {
-                if (onEdit) {
-                  onEdit();
-                }
-                onClose();
-              }}
-              className="px-3 py-1.5 text-sm bg-[var(--custom-primary-color)] text-white rounded-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--custom-primary-color)] flex items-center gap-2 cursor-pointer"
-            >
-              <Edit className="w-3 h-3" />
-              Edit
-            </button>
+        <div className="px-8 py-4 border-t bg-gray-50 flex-shrink-0 rounded-b-lg">
+          <div className="flex justify-between items-center">
+            <div className="text-xs text-gray-500">
+              Generated by {getAgentTypeLabel(agentType)} AI Assistant
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--custom-primary-color)] flex items-center gap-2 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+              <button
+                onClick={() => {
+                  if (onEdit) {
+                    onEdit();
+                  }
+                  onClose();
+                }}
+                className="px-4 py-2 text-sm bg-[var(--custom-primary-color)] text-white rounded-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--custom-primary-color)] flex items-center gap-2 cursor-pointer"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </button>
+            </div>
           </div>
         </div>
       </div>

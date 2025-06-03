@@ -18,47 +18,78 @@ const { PromptTemplate } = require("@langchain/core/prompts");
 // });
 
 const NOTE_TAKER_PROMPT_TEMPLATE = `
-You are an expert academic note-taker. Your primary goal is to extract, organize, and summarize key information *solely* from the provided "Documents Content". Do not use any external knowledge.
+You are an expert academic note-taker. Your primary goal is to extract, organize, and summarize key information from the provided documents.
 
 Context:
 - Number of documents: {fileCount}
 - Total words: {totalWords}
-- Note style: {noteStyle} (If outline, use nested bullet points or numbered lists to show hierarchy.)
+- Note style: {noteStyle}
 - Summary length: {summaryLength}
 - Include formulas: {includeFormulas}
-- Include diagram/figure references: {includeDiagramReferences}
+- Include diagram references: {includeDiagramReferences}
 
 Documents Content:
 {content}
 
-Instructions:
-1.  Extract main topics, concepts, and key points (such as important definitions, arguments, evidence, or conclusions) from the "Documents Content".
-2.  Create a {summaryLength} summary that encapsulates the core information from the *entire* "Documents Content".
-3.  {formulaInstruction}
-4.  {diagramInstruction}
-5.  Identify and list key topics separately. If no distinct key topics are identified, state "No key topics identified." under the relevant heading.
-6.  Organize the comprehensive extraction of information (topics, concepts, key points) into the "Detailed Notes" section, adhering strictly to the specified {noteStyle}.
-7.  Maintain academic accuracy and clarity in all sections.
+IMPORTANT FORMATTING RULES:
+1. Use proper markdown formatting for all sections
+2. Use ## for main headings, ### for subheadings
+3. Use **bold** for important terms and concepts
+4. Use *italics* for emphasis
+5. Use bullet points (-) for lists
+6. Use numbered lists (1., 2., etc.) for sequential items
+7. Use > for important quotes or key statements
+8. Use \`code blocks\` for formulas or technical content
+9. Leave blank lines between sections for better readability
 
-Format your response strictly as follows, ensuring all specified headings are present:
+You MUST structure your response EXACTLY as follows:
 
-# Summary
-[Your summary here. This should be a {summaryLength} overview of the entire provided content.]
+## Summary
 
-# Key Topics
-[List key topics as bullet points. If none, state "No key topics identified."]
-- Topic 1
-- Topic 2
-...
+{summaryLength} overview of the entire content. Write in clear, complete sentences.
 
-# Diagram and Figure References
-[List unique textual references to visuals as bullet points (e.g., "Figure 1 shows...", "See Table A..."). If none, state "No diagram or figure references identified."]
-- Reference 1
-- Reference 2
-...
+## Key Topics
 
-# Detailed Notes
-[Your comprehensive notes here, meticulously organized in the specified {noteStyle}. This section should contain the detailed extraction of main topics, concepts, and key points, reflecting the depth of the original documents.]
+List the main topics covered:
+
+- **Topic 1**: Brief description
+- **Topic 2**: Brief description
+- **Topic 3**: Brief description
+(Continue as needed)
+
+## Key Concepts and Definitions
+
+Important terms and their definitions:
+
+### Term 1
+Definition and explanation
+
+### Term 2
+Definition and explanation
+
+(Continue as needed)
+
+{diagramInstruction}
+
+## Detailed Notes
+
+Organize the comprehensive notes in {noteStyle} format:
+
+### Section 1 Title
+Detailed content with proper formatting
+
+### Section 2 Title
+Detailed content with proper formatting
+
+(Continue with all major sections)
+
+## Takeaways and Conclusions
+
+- Key takeaway 1
+- Key takeaway 2
+- Key takeaway 3
+
+Remember to maintain academic accuracy and use proper markdown formatting throughout.
 `;
 
 class NoteTakerAgent extends BaseAgent {
@@ -102,11 +133,15 @@ class NoteTakerAgent extends BaseAgent {
     const includeFormulas =
       state.customTemplateConfig?.includeFormulas !== undefined
         ? state.customTemplateConfig.includeFormulas
-        : state.includeFormulas;
+        : state.includeFormulas !== undefined
+          ? state.includeFormulas
+          : true;
     const includeDiagramReferences =
       state.customTemplateConfig?.includeDiagramReferences !== undefined
         ? state.customTemplateConfig.includeDiagramReferences
-        : state.includeDiagramReferences;
+        : state.includeDiagramReferences !== undefined
+          ? state.includeDiagramReferences
+          : true;
 
     try {
       const prompt = await promptTemplate.format({
@@ -117,11 +152,11 @@ class NoteTakerAgent extends BaseAgent {
         includeFormulas: includeFormulas ? "yes" : "no",
         includeDiagramReferences: includeDiagramReferences ? "yes" : "no",
         formulaInstruction: includeFormulas
-          ? "Preserve all mathematical formulas and equations."
-          : "Focus on conceptual understanding without formulas.",
+          ? "Preserve all mathematical formulas and equations using LaTeX notation in code blocks."
+          : "Omit mathematical formulas and focus on conceptual understanding.",
         diagramInstruction: includeDiagramReferences
-          ? "Identify and list any textual references to diagrams, figures, tables, charts, or other visuals (e.g., 'as shown in Figure 1', 'Table 2 illustrates...'). List each unique reference."
-          : "Do not list references to diagrams, figures, or tables.",
+          ? `## Diagram and Figure References\n\nList all references to diagrams, figures, tables, or charts mentioned in the text:\n\n- Figure/Table reference 1\n- Figure/Table reference 2\n(Continue as needed)`
+          : "",
         // Allow custom template to inject additional context/instructions if needed
         ...(state.customTemplateConfig?.additionalPromptValues || {}),
         content: state.context.chunks.slice(0, 10).join("\n\n---\n\n"), // Limit context
@@ -130,26 +165,35 @@ class NoteTakerAgent extends BaseAgent {
       const response = await this.llm.invoke(prompt);
       const notes = response.content;
 
-      // Extract key topics using regex
-      const keyTopicsMatch = notes.match(/# Key Topics\n([\s\S]*?)(?=\n#|$)/);
-      const keyTopics = keyTopicsMatch
-        ? keyTopicsMatch[1]
-            .split("\n")
-            .filter((line) => line.trim().startsWith("-"))
-            .map((line) => line.replace(/^-\s*/, "").trim())
-        : [];
-
-      // Extract diagram and figure references using regex
-      const diagramReferencesMatch = notes.match(
-        /# Diagram and Figure References\n([\s\S]*?)(?=\n#|$)/
+      // Extract key topics using regex (updated for new format)
+      const keyTopicsMatch = notes.match(
+        /## Key Topics\s*\n([\s\S]*?)(?=\n##|$)/
       );
-      const diagramReferences = diagramReferencesMatch
-        ? diagramReferencesMatch[1]
+      const keyTopics = [];
+      if (keyTopicsMatch && keyTopicsMatch[1]) {
+        const topicsText = keyTopicsMatch[1];
+        const topicMatches = topicsText.matchAll(/- \*\*(.+?)\*\*: (.+)/g);
+        for (const match of topicMatches) {
+          keyTopics.push(`${match[1]}: ${match[2]}`);
+        }
+      }
+
+      // Extract diagram references using regex (if included)
+      const diagramReferences = [];
+      if (includeDiagramReferences) {
+        const diagramMatch = notes.match(
+          /## Diagram and Figure References\s*\n([\s\S]*?)(?=\n##|$)/
+        );
+        if (diagramMatch && diagramMatch[1]) {
+          const refsText = diagramMatch[1];
+          const refs = refsText
             .split("\n")
             .filter((line) => line.trim().startsWith("-"))
             .map((line) => line.replace(/^-\s*/, "").trim())
-            .filter((ref) => ref.length > 0) // Ensure non-empty references
-        : [];
+            .filter((ref) => ref.length > 0);
+          diagramReferences.push(...refs);
+        }
+      }
 
       // Calculate token usage (approximate)
       const tokensUsed = Math.ceil((prompt.length + notes.length) / 4);

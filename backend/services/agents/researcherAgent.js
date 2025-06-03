@@ -20,54 +20,83 @@ const { PromptTemplate } = require("@langchain/core/prompts");
 
 // Placeholder for a more complex prompt later
 const RESEARCHER_PROMPT_TEMPLATE = `
-You are an expert academic researcher. Your task is to analyze and synthesize information from the provided documents based on the user's requirements.
+You are an expert academic researcher. Your goal is to analyze multiple documents and synthesize comprehensive research insights.
 
 Context:
 - Number of documents: {fileCount}
 - Total words: {totalWords}
-- Research Depth: {researchDepth}
-{specificQuestionsPrompt}
+- Research depth: {researchDepth}
+- Include citations: {includeCitations}
 
-Documents Content (concatenated and summarized if necessary):
+Documents Content:
 {content}
 
-Instructions:
-1.  Thoroughly analyze the provided content from all documents.
-2.  Identify and list the main common themes or topics discussed across the documents.
-3.  If multiple documents discuss similar topics, compare and contrast their perspectives, findings, or arguments. Note any significant agreements or disagreements.
-4.  Identify and clearly describe any conflicting information or contradictions found between the documents.
-5.  Extract any explicit citations or references mentioned in the text. List them clearly.
-6.  Based on your analysis, provide a concise research summary.
-7.  If specific questions were provided, address them directly using information from the documents.
+IMPORTANT FORMATTING RULES:
+1. Use proper markdown formatting for all sections
+2. Use ## for main headings, ### for subheadings
+3. Use **bold** for important terms, findings, and concepts
+4. Use *italics* for emphasis
+5. Use bullet points (-) for lists
+6. Use numbered lists (1., 2., etc.) for sequential items
+7. Use > for important quotes or key findings
+8. Use tables for comparative analysis when appropriate
+9. Leave blank lines between sections for better readability
 
-Structure your response as follows:
+You MUST structure your response EXACTLY as follows:
 
-# Research Summary
-[Your concise summary here, addressing the overall findings and specific questions if any.]
+## Research Summary
 
-# Key Themes
-- Theme 1
-- Theme 2
-...
+Provide a comprehensive overview of the key findings across all documents. This should synthesize the main insights and highlight connections between sources.
 
-# Source Comparisons & Agreements/Disagreements
-- [Detailed comparison between Source X and Source Y on Topic Z, highlighting agreements/disagreements.]
-...
+## Key Themes and Patterns
 
-# Conflicting Information
-- [Description of conflicting information found, citing the sources involved.]
-...
+Identify and explain the major themes that emerge across the documents:
 
-# Extracted Citations
-- Citation 1 (e.g., Author, Year, Title)
-- Citation 2
-...
+### Theme 1: [Theme Name]
+Detailed explanation of this theme and how it appears across documents.
 
-# Detailed Analysis
-[Provide a more detailed synthesis of the information, expanding on themes, comparisons, and addressing specific questions if provided.]
+### Theme 2: [Theme Name]
+Detailed explanation of this theme and how it appears across documents.
 
-Ensure your analysis is objective, well-supported by the document content, and presented clearly.
-If specific questions were provided, ensure your detailed analysis directly answers them.
+(Continue as needed)
+
+## Comparative Analysis
+
+Compare and contrast the perspectives, methodologies, or findings across documents:
+
+| Aspect | Document 1 | Document 2 | Document 3 |
+|--------|------------|------------|------------|
+| Main Argument | ... | ... | ... |
+| Methodology | ... | ... | ... |
+| Key Findings | ... | ... | ... |
+
+## Critical Insights
+
+Provide deeper analysis and critical evaluation:
+
+1. **Insight 1**: Detailed explanation
+2. **Insight 2**: Detailed explanation
+3. **Insight 3**: Detailed explanation
+
+## Knowledge Gaps and Future Directions
+
+Identify areas that need further research:
+
+- Gap 1: Description and why it matters
+- Gap 2: Description and why it matters
+- Gap 3: Description and why it matters
+
+{citationSection}
+
+## Recommendations
+
+Based on the research analysis, provide actionable recommendations:
+
+1. **Recommendation 1**: Detailed explanation
+2. **Recommendation 2**: Detailed explanation
+3. **Recommendation 3**: Detailed explanation
+
+Remember to maintain academic rigor and use proper markdown formatting throughout.
 `;
 
 class ResearcherAgent extends BaseAgent {
@@ -92,99 +121,151 @@ class ResearcherAgent extends BaseAgent {
   }
 
   async processWithAI(state) {
-    this.logger.info(
-      `[${this.name}] Processing with AI. Task ID: ${state.taskId}`
-    );
-    await this.updateProgress(
-      state.taskId,
-      60,
-      "Synthesizing research findings..."
-    );
-
-    const specificQuestionsPrompt =
-      state.specificQuestions && state.specificQuestions.length > 0
-        ? `\n- Specific Questions to Address:\n${state.specificQuestions.map((q) => `  - ${q}`).join("\n")}`
-        : "";
+    this.logger.info("[ResearcherAgent] Processing with AI");
+    await this.updateProgress(state.taskId, 60, "Analyzing documents...");
 
     const promptTemplate = PromptTemplate.fromTemplate(
       RESEARCHER_PROMPT_TEMPLATE
     );
 
     try {
+      const researchDepth = state.researchDepth || "standard";
+      const includeCitations = state.includeCitations !== false; // default true
+
+      const citationSection = includeCitations
+        ? `## Citations and References
+
+Extract and format all citations found in the documents:
+
+- **Citation 1**: Full citation details
+- **Citation 2**: Full citation details
+(Continue for all citations found)`
+        : "";
+
       const prompt = await promptTemplate.format({
         fileCount: state.context.fileCount,
         totalWords: state.context.totalWords,
-        researchDepth: state.researchDepth || "moderate",
-        specificQuestionsPrompt: specificQuestionsPrompt,
-        content: state.context.chunks.join("\n\n---\n\n"), // Provide all chunks
+        researchDepth: researchDepth,
+        includeCitations: includeCitations ? "yes" : "no",
+        citationSection: citationSection,
+        content: state.context.chunks.slice(0, 20).join("\n\n---\n\n"), // Use more chunks for research
       });
 
-      this.logger.info(
-        `[${this.name}] Sending prompt to LLM. Length: ${prompt.length}`
-      );
       const response = await this.llm.invoke(prompt);
       const analysis = response.content;
-      this.logger.info(
-        `[${this.name}] Received response from LLM. Length: ${analysis.length}`
-      );
 
-      // Basic Parsing (can be improved with more robust methods, e.g., Zod schemas for LLM output)
+      // Extract key components using updated regex patterns
       const researchSummary = analysis
-        .match(/# Research Summary\n([\s\S]*?)(?=\n# Key Themes|$)/)?.[1]
-        ?.trim();
-      const identifiedThemes =
-        analysis
-          .match(/# Key Themes\n([\s\S]*?)(?=\n# Source Comparisons|$)/)?.[1]
-          ?.split("\n")
-          .map((t) => t.replace(/^-\s*/, "").trim())
-          .filter((t) => t) || [];
-      const sourceComparisons =
-        analysis
-          .match(
-            /# Source Comparisons & Agreements\/Disagreements\n([\s\S]*?)(?=\n# Conflicting Information|$)/
-          )?.[1]
-          ?.split("\n")
-          .map((t) => t.replace(/^-\s*/, "").trim())
-          .filter((t) => t) || [];
-      const conflictingInformation =
-        analysis
-          .match(
-            /# Conflicting Information\n([\s\S]*?)(?=\n# Extracted Citations|$)/
-          )?.[1]
-          ?.split("\n")
-          .map((t) => t.replace(/^-\s*/, "").trim())
-          .filter((t) => t) || [];
-      const extractedCitations =
-        analysis
-          .match(
-            /# Extracted Citations\n([\s\S]*?)(?=\n# Detailed Analysis|$)/
-          )?.[1]
-          ?.split("\n")
-          .map((t) => t.replace(/^-\s*/, "").trim())
-          .filter((t) => t) || [];
-      const detailedAnalysis = analysis
-        .match(/# Detailed Analysis\n([\s\S]*)/)?.[1]
+        .match(/## Research Summary\s*\n([\s\S]*?)(?=\n##|$)/)?.[1]
         ?.trim();
 
-      const tokensUsed = Math.ceil((prompt.length + analysis.length) / 4); // Approximate
+      const keyThemes = [];
+      const themesMatch = analysis.match(
+        /## Key Themes and Patterns\s*\n([\s\S]*?)(?=\n##|$)/
+      );
+      if (themesMatch) {
+        const themeMatches = themesMatch[1].matchAll(
+          /### Theme \d+: (.+?)\n([\s\S]*?)(?=\n###|\n##|$)/g
+        );
+        for (const match of themeMatches) {
+          keyThemes.push({
+            theme: match[1],
+            description: match[2].trim(),
+          });
+        }
+      }
+
+      const comparativeAnalysis = analysis
+        .match(/## Comparative Analysis\s*\n([\s\S]*?)(?=\n##|$)/)?.[1]
+        ?.trim();
+
+      const criticalInsights = [];
+      const insightsMatch = analysis.match(
+        /## Critical Insights\s*\n([\s\S]*?)(?=\n##|$)/
+      );
+      if (insightsMatch) {
+        const insightMatches = insightsMatch[1].matchAll(
+          /\d+\.\s*\*\*(.+?)\*\*:\s*(.+)/g
+        );
+        for (const match of insightMatches) {
+          criticalInsights.push({
+            insight: match[1],
+            explanation: match[2],
+          });
+        }
+      }
+
+      const knowledgeGaps = [];
+      const gapsMatch = analysis.match(
+        /## Knowledge Gaps and Future Directions\s*\n([\s\S]*?)(?=\n##|$)/
+      );
+      if (gapsMatch) {
+        const gaps = gapsMatch[1]
+          .split("\n")
+          .filter((line) => line.trim().startsWith("-"))
+          .map((line) => line.replace(/^-\s*/, "").trim())
+          .filter((gap) => gap.length > 0);
+        knowledgeGaps.push(...gaps);
+      }
+
+      const citations = [];
+      if (includeCitations) {
+        const citationsMatch = analysis.match(
+          /## Citations and References\s*\n([\s\S]*?)(?=\n##|$)/
+        );
+        if (citationsMatch) {
+          const cites = citationsMatch[1]
+            .split("\n")
+            .filter((line) => line.trim().startsWith("-"))
+            .map((line) =>
+              line.replace(/^-\s*\*\*Citation \d+\*\*:\s*/, "").trim()
+            )
+            .filter((cite) => cite.length > 0);
+          citations.push(...cites);
+        }
+      }
+
+      const recommendations = [];
+      const recsMatch = analysis.match(
+        /## Recommendations\s*\n([\s\S]*?)(?=\n##|$)/
+      );
+      if (recsMatch) {
+        const recMatches = recsMatch[1].matchAll(
+          /\d+\.\s*\*\*(.+?)\*\*:\s*(.+)/g
+        );
+        for (const match of recMatches) {
+          recommendations.push({
+            recommendation: match[1],
+            explanation: match[2],
+          });
+        }
+      }
+
+      // Calculate token usage (approximate)
+      const tokensUsed = Math.ceil((prompt.length + analysis.length) / 4);
 
       return {
         ...state,
+        analysis,
         researchSummary,
-        identifiedThemes,
-        sourceComparisons,
-        conflictingInformation,
-        extractedCitations,
-        detailedAnalysis,
+        keyThemes,
+        comparativeAnalysis,
+        criticalInsights,
+        knowledgeGaps,
+        citations,
+        recommendations,
         result: {
-          content: analysis, // Full structured analysis
+          content: analysis,
           format: "markdown",
           metadata: {
             agentType: "researcher",
-            researchDepth: state.researchDepth,
-            specificQuestions: state.specificQuestions,
-            themesCount: identifiedThemes.length,
-            citationsCount: extractedCitations.length,
+            researchDepth: researchDepth,
+            includeCitations: includeCitations,
+            themesFound: keyThemes.length,
+            insightsCount: criticalInsights.length,
+            gapsIdentified: knowledgeGaps.length,
+            citationsFound: citations.length,
+            recommendationsCount: recommendations.length,
             processedFiles: state.context.fileCount,
             totalWords: state.context.totalWords,
           },
@@ -196,13 +277,14 @@ class ResearcherAgent extends BaseAgent {
       };
     } catch (error) {
       this.logger.error(
-        `[${this.name}] AI processing error: ${error.message}`,
+        `[ResearcherAgent] AI processing error: ${error.message}`,
         error
       );
       return {
         ...state,
         status: "failed",
         error: `AI processing failed: ${error.message}`,
+        progress: state.progress,
         currentStep: "processWithAI_error",
       };
     }
