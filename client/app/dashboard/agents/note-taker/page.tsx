@@ -94,21 +94,24 @@ export default function NoteTakerAgentPage() {
     }
   };
 
-  const courseColors = React.useMemo(() => {
-    if (typeof window !== "undefined") {
-      const computedStyle = getComputedStyle(document.documentElement);
-      const primaryColor =
-        computedStyle.getPropertyValue("--custom-primary-color")?.trim() ||
-        "#6366f1";
-      const secondaryColor =
-        computedStyle.getPropertyValue("--custom-secondary-color")?.trim() ||
-        "#8b5cf6";
-      return {
-        primary: primaryColor,
-        secondary: secondaryColor,
-      };
-    }
-    return { primary: "#6366f1", secondary: "#8b5cf6" };
+  const [courseColors, setCourseColors] = useState({
+    primary: "#6366f1",
+    secondary: "#8b5cf6"
+  });
+
+  // Update colors on client side only
+  useEffect(() => {
+    const computedStyle = getComputedStyle(document.documentElement);
+    const primaryColor =
+      computedStyle.getPropertyValue("--custom-primary-color")?.trim() ||
+      "#6366f1";
+    const secondaryColor =
+      computedStyle.getPropertyValue("--custom-secondary-color")?.trim() ||
+      "#8b5cf6";
+    setCourseColors({
+      primary: primaryColor,
+      secondary: secondaryColor,
+    });
   }, []);
 
   const { getToken } = useAuth();

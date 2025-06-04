@@ -13,7 +13,7 @@ import {
 import { TASetupProvider } from "@/app/context/TASetupContext";
 import { AgentProvider } from "@/app/context/AgentContext";
 import { useUser } from "@clerk/nextjs";
-import { BookCopy, Settings, User, Bot } from "lucide-react";
+import { BookCopy, Settings, User, Bot, Terminal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -181,6 +181,7 @@ export default function DashboardLayout({ children }) {
   const isSchoolActive = pathname === "/dashboard";
   const isClassesActive = pathname.startsWith("/dashboard/classes");
   const isAgentsActive = pathname.startsWith("/dashboard/agents");
+  const isTerminalActive = pathname.startsWith("/dashboard/terminal");
   const isProfileActive = pathname.startsWith("/dashboard/profile");
   const isSettingsActive = pathname.startsWith("/dashboard/settings");
 
@@ -213,6 +214,12 @@ export default function DashboardLayout({ children }) {
               text="AI Agents"
               active={isAgentsActive}
               href="/dashboard/agents"
+            />
+            <SidebarItem
+              icon={<Terminal size={25} />}
+              text="Terminal"
+              active={isTerminalActive}
+              href="/dashboard/terminal"
             />
             <SidebarItem
               icon={<User size={25} />}

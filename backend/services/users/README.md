@@ -12,15 +12,15 @@ This service uses OpenAI's structured output capabilities to fetch a school's of
 ## Usage
 
 ```javascript
-import { getSchoolColors } from './getSchoolColors.js';
+import { getSchoolColors } from "./getSchoolColors.js";
 
-const result = await getSchoolColors('Stanford University');
+const result = await getSchoolColors("Stanford University");
 
 if (result.success) {
   console.log(result.data);
   // {
   //   primary_color: "#8C1515",
-  //   secondary_color: "#FFFFFF", 
+  //   secondary_color: "#FFFFFF",
   //   school_name: "Stanford University",
   //   confidence: 0.95,
   //   source: "official logo and athletic uniforms"

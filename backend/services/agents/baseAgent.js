@@ -1,354 +1,494 @@
-// const { StateGraph, END } = require("@langchain/langgraph");
-const {
-  BaseMessage,
-  HumanMessage,
-  AIMessage,
-} = require("@langchain/core/messages");
-// const { z } = require("zod");
-const AgentTask = require("../../models/agentTask.model");
+import { ChatAnthropic } from "@langchain/anthropic";
+import { tool } from "@langchain/core/tools";
+import { MemorySaver } from "@langchain/langgraph";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { z } from "zod";
+import webSearchService from "../webSearchService.js";
 
-// Define the base state schema
-// const BaseAgentState = z.object({
-//   taskId: z.string(),
-//   userId: z.string(),
-//   courseInstanceId: z.string(),
-//   files: z.array(z.any()),
-//   processedContent: z
-//     .array(
-//       z.object({
-//         fileName: z.string(),
-//         content: z.string(),
-//         metadata: z.any(),
-//       })
-//     )
-//     .optional(),
-//   context: z
-//     .object({
-//       totalWords: z.number(),
-//       fileCount: z.number(),
-//       chunks: z.array(z.string()),
-//     })
-//     .optional(),
-//   result: z.any().optional(),
-//   error: z.string().optional(),
-//   currentStep: z.string(),
-//   progress: z.number().default(0),
-//   messages: z.array(z.any()).default([]),
-//   mode: z.string().optional(),
-//   model: z.string().optional(),
-//   customSettings: z.object({}).optional(),
-//   noteStyle: z.string().optional(),
-//   summaryLength: z.number().optional(),
-//   includeFormulas: z.boolean().optional(),
-//   includeDiagramReferences: z.boolean().optional(),
-// });
+/**
+ * Base Agent Class - Foundation for all AI agents in the system
+ * Provides web search and content extraction capabilities
+ */
+export class BaseAgent {
+  constructor(config = {}) {
+    // Default configuration
+    this.config = {
+      modelName: "claude-3-7-sonnet-latest",
+      temperature: 0.5,
+      maxTokens: 4096,
+      systemPrompt:
+        "You are a helpful AI assistant with web search capabilities.",
+      ...config,
+    };
 
-class BaseAgent {
-  constructor(name, llmProvider) {
-    this.name = name;
-    this.llmProvider = llmProvider;
-    this.graph = null;
-    this.logger = console; // Can be replaced with winston logger
-  }
+    // Initialize the model
+    this.model = new ChatAnthropic({
+      model: this.config.modelName,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      temperature: this.config.temperature,
+      maxTokens: this.config.maxTokens,
+    });
 
-  // Build the graph structure
-  // buildGraph() {
-  //   // Define state channels with proper reducers
-  //   const channels = {
-  //     taskId: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     userId: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     courseInstanceId: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     files: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => [],
-  //     },
-  //     processedContent: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => [],
-  //     },
-  //     context: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => null,
-  //     },
-  //     result: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => null,
-  //     },
-  //     error: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => null,
-  //     },
-  //     currentStep: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => "start",
-  //     },
-  //     progress: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => 0,
-  //     },
-  //     messages: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => [],
-  //     },
-  //     mode: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     model: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     customSettings: {
-  //       value: (x, y) => y ?? x,
-  //       default: () => ({}),
-  //     },
-  //     noteStyle: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     summaryLength: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     includeFormulas: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //     includeDiagramReferences: {
-  //       value: (x, y) => y ?? x,
-  //     },
-  //   };
+    // Initialize memory if enabled
+    this.memory = this.config.enableMemory ? new MemorySaver() : null;
 
-  //   const workflow = new StateGraph({
-  //     channels,
-  //   });
+    // Define base tools
+    this.tools = this.createBaseTools();
 
-  //   // Add nodes
-  //   workflow.addNode("validateFiles", this.validateFiles.bind(this));
-  //   workflow.addNode("processFiles", this.processFiles.bind(this));
-  //   workflow.addNode("buildContext", this.buildContext.bind(this));
-  //   workflow.addNode("processWithAI", this.processWithAI.bind(this));
-  //   workflow.addNode("formatResult", this.formatResult.bind(this));
-  //   workflow.addNode("persistState", this.persistState.bind(this));
-
-  //   // Add edges
-  //   workflow.addEdge("validateFiles", "processFiles");
-  //   workflow.addEdge("processFiles", "buildContext");
-  //   workflow.addEdge("buildContext", "processWithAI");
-  //   workflow.addEdge("processWithAI", "formatResult");
-  //   workflow.addEdge("formatResult", "persistState");
-  //   workflow.addEdge("persistState", END);
-
-  //   // Set entry point
-  //   workflow.setEntryPoint("validateFiles");
-
-  //   // Compile the graph
-  //   this.graph = workflow.compile();
-  // }
-
-  // Node implementations (to be overridden by subclasses)
-  async validateFiles(state) {
-    // Ensure state.files exists
-    const files = state.files || [];
-
-    this.logger.info(`[${this.name}] Validating ${files.length} files`);
-    await this.updateProgress(state.taskId, 10, "Validating files...");
-
-    // Basic validation
-    if (!files || files.length === 0) {
-      throw new Error("No files provided");
+    // Add any custom tools passed in config
+    if (this.config.customTools) {
+      this.tools = [...this.tools, ...this.config.customTools];
     }
 
-    return {
-      ...state,
-      files: files, // Ensure files is set in the state
-      currentStep: "validateFiles",
-      progress: 10,
-    };
+    // Create the agent
+    this.agent = this.createAgent();
   }
 
-  async processFiles(state) {
-    this.logger.info(`[${this.name}] Processing files`);
+  /**
+   * Create base tools available to all agents
+   */
+  createBaseTools() {
+    const tools = [];
 
-    // Debug log the state.files structure
-    this.logger.info(`[${this.name}] State files debug:`, {
-      filesPresent: !!state.files,
-      filesCount: state.files ? state.files.length : "undefined",
-      firstFileKeys:
-        state.files && state.files[0]
-          ? Object.keys(state.files[0])
-          : "no files",
-    });
+    // Web Search Tool - for finding relevant URLs
+    const webSearchTool = tool(
+      async ({ query, options = {} }) => {
+        try {
+          console.log(`[BaseAgent] Searching web for: ${query}`);
 
-    await this.updateProgress(state.taskId, 20, "Processing files...");
+          const searchResults = await webSearchService.searchForUrls(query, {
+            num: options.maxResults || 5,
+            ...options,
+          });
 
-    // Files should already be processed by the worker
-    // Just format them for the agent
-    const processedContent = state.files.map((f) => ({
-      fileName: f.name || f.fileName,
-      content: f.content,
-      metadata: f.metadata || {},
-      wordCount: f.wordCount || 0,
-    }));
+          if (!searchResults.success) {
+            return `Search failed: ${searchResults.error}`;
+          }
 
-    return {
-      ...state,
-      processedContent,
-      currentStep: "processFiles",
-      progress: 30,
-    };
-  }
+          if (searchResults.results.length === 0) {
+            return "No search results found.";
+          }
 
-  async buildContext(state) {
-    this.logger.info(`[${this.name}] Building context`);
-    await this.updateProgress(state.taskId, 40, "Building context...");
+          // Format results for the agent
+          const formattedResults = searchResults.results
+            .map(
+              (result, index) =>
+                `${index + 1}. ${result.title}\n   URL: ${result.url}\n   ${result.snippet}`
+            )
+            .join("\n\n");
 
-    const validFiles = state.processedContent;
-    const context = {
-      fileCount: validFiles.length,
-      totalWords: validFiles.reduce((sum, f) => sum + (f.wordCount || 0), 0),
-      chunks: validFiles.flatMap((f) => f.chunks || [f.content]),
-    };
-
-    return {
-      ...state,
-      context,
-      currentStep: "buildContext",
-      progress: 50,
-    };
-  }
-
-  // Abstract method - must be implemented by subclasses
-  async processWithAI(state) {
-    throw new Error("processWithAI must be implemented by subclass");
-  }
-
-  async formatResult(state) {
-    this.logger.info(`[${this.name}] Formatting result`);
-    await this.updateProgress(state.taskId, 90, "Formatting result...");
-
-    return {
-      ...state,
-      currentStep: "formatResult",
-      progress: 95,
-    };
-  }
-
-  async persistState(state) {
-    this.logger.info(`[${this.name}] Persisting final state`);
-    await this.updateProgress(state.taskId, 100, "Complete");
-
-    // Update MongoDB with final result
-    await AgentTask.findByIdAndUpdate(state.taskId, {
-      status: "completed",
-      progress: 100,
-      result: state.result,
-      usage: {
-        tokensUsed: state.tokensUsed || 0,
-        cost: state.cost || 0,
+          return `Found ${searchResults.results.length} results:\n\n${formattedResults}`;
+        } catch (error) {
+          console.error("[BaseAgent] Web search error:", error);
+          return `Error performing web search: ${error.message}`;
+        }
       },
-      completedAt: new Date(),
-    });
-
-    return {
-      ...state,
-      currentStep: "complete",
-      progress: 100,
-    };
-  }
-
-  // Helper methods
-  async updateProgress(taskId, progress, message) {
-    // Debug log
-    this.logger.info(
-      `[${this.name}] updateProgress called with taskId: "${taskId}", progress: ${progress}`
+      {
+        name: "webSearch",
+        description:
+          "Search the web for information. Returns URLs and snippets.",
+        schema: z.object({
+          query: z.string().describe("The search query"),
+          options: z
+            .object({
+              maxResults: z
+                .number()
+                .optional()
+                .describe("Maximum number of results (default: 5)"),
+              language: z
+                .string()
+                .optional()
+                .describe("Language code (e.g., 'en')"),
+              region: z
+                .string()
+                .optional()
+                .describe("Region code (e.g., 'us')"),
+            })
+            .optional(),
+        }),
+      }
     );
 
-    // Validate taskId
-    if (!taskId || taskId === "") {
-      this.logger.error(
-        `[${this.name}] Invalid taskId for updateProgress: "${taskId}"`
-      );
-      return; // Skip update if taskId is invalid
-    }
+    // Content Extraction Tool - for getting detailed content from URLs
+    const extractContentTool = tool(
+      async ({ urls, query = "", options = {} }) => {
+        try {
+          console.log(
+            `[BaseAgent] Extracting content from ${urls.length} URLs`
+          );
 
-    try {
-      await AgentTask.findByIdAndUpdate(taskId, {
-        progress,
-        workerMessage: message,
-      });
+          // Ensure urls is an array
+          const urlArray = Array.isArray(urls) ? urls : [urls];
 
-      // Call the progress callback if set
-      if (this.progressCallback) {
-        await this.progressCallback(progress);
+          const extractedContent =
+            await webSearchService.extractContentFromUrls(urlArray, query, {
+              depth: options.depth || "advanced",
+              ...options,
+            });
+
+          if (!extractedContent.success) {
+            return `Content extraction failed: ${extractedContent.error}`;
+          }
+
+          if (
+            !extractedContent.extractedContent ||
+            extractedContent.extractedContent.length === 0
+          ) {
+            return "No content could be extracted from the provided URLs.";
+          }
+
+          // Format extracted content
+          const formattedContent = extractedContent.extractedContent
+            .map(
+              (item) =>
+                `Source: ${item.url}\nTitle: ${item.title || "N/A"}\n\nContent:\n${item.content || item.snippet || "No content available"}`
+            )
+            .join("\n\n---\n\n");
+
+          return formattedContent;
+        } catch (error) {
+          console.error("[BaseAgent] Content extraction error:", error);
+          return `Error extracting content: ${error.message}`;
+        }
+      },
+      {
+        name: "extractContent",
+        description: "Extract detailed content from one or more URLs.",
+        schema: z.object({
+          urls: z.union([
+            z.string().describe("Single URL to extract content from"),
+            z
+              .array(z.string())
+              .describe("Array of URLs to extract content from"),
+          ]),
+          query: z
+            .string()
+            .optional()
+            .describe("Optional context query for better extraction"),
+          options: z
+            .object({
+              depth: z
+                .enum(["basic", "advanced"])
+                .optional()
+                .describe("Extraction depth"),
+              includeImages: z
+                .boolean()
+                .optional()
+                .describe("Include image URLs"),
+              includeTables: z
+                .boolean()
+                .optional()
+                .describe("Include table data"),
+            })
+            .optional(),
+        }),
       }
-    } catch (error) {
-      this.logger.error(
-        `[${this.name}] Failed to update progress:`,
-        error.message
+    );
+
+    // Combined Search and Extract Tool - for convenient one-step research
+    const searchAndExtractTool = tool(
+      async ({ query, options = {} }) => {
+        try {
+          console.log(`[BaseAgent] Searching and extracting for: ${query}`);
+
+          const results = await webSearchService.searchAndExtract(query, {
+            extractCount: options.extractCount || 3,
+            searchNum: options.searchNum || 5,
+            ...options,
+          });
+
+          if (!results.success) {
+            return `Search and extract failed: ${results.error || "Unknown error"}`;
+          }
+
+          // If we have a direct answer from Tavily
+          let response = "";
+          if (results.answer) {
+            response += `Summary Answer:\n${results.answer}\n\n`;
+          }
+
+          // Add search results
+          if (results.searchResults && results.searchResults.length > 0) {
+            response += `Search Results (${results.searchResults.length} found):\n`;
+            results.searchResults.forEach((result, index) => {
+              response += `${index + 1}. ${result.title} - ${result.url}\n`;
+            });
+            response += "\n";
+          }
+
+          // Add extracted content if available
+          if (results.extractedContent && results.extractedContent.length > 0) {
+            response += `\nDetailed Content from ${results.extractedContent.length} sources:\n\n`;
+            results.extractedContent.forEach((item, index) => {
+              response += `Source ${index + 1}: ${item.url}\n`;
+              response += `Title: ${item.title || "N/A"}\n`;
+              response += `Content: ${item.content || item.snippet || "No content available"}\n\n`;
+            });
+          }
+
+          return response || "No results found.";
+        } catch (error) {
+          console.error("[BaseAgent] Search and extract error:", error);
+          return `Error performing search and extract: ${error.message}`;
+        }
+      },
+      {
+        name: "searchAndExtract",
+        description:
+          "Search the web and automatically extract content from the top results in one step.",
+        schema: z.object({
+          query: z.string().describe("The search query"),
+          options: z
+            .object({
+              searchNum: z
+                .number()
+                .optional()
+                .describe("Number of search results to return (default: 5)"),
+              extractCount: z
+                .number()
+                .optional()
+                .describe(
+                  "Number of top results to extract content from (default: 3)"
+                ),
+              depth: z
+                .enum(["basic", "advanced"])
+                .optional()
+                .describe("Extraction depth"),
+            })
+            .optional(),
+        }),
+      }
+    );
+
+    // Only add tools if web search service is available
+    if (webSearchService.isAvailable()) {
+      tools.push(webSearchTool, extractContentTool, searchAndExtractTool);
+    } else {
+      console.warn(
+        "[BaseAgent] Web search service is not available. Web search tools will not be added."
       );
     }
+
+    return tools;
   }
 
-  // Execute the agent
-  async execute(initialState) {
+  /**
+   * Create the agent with tools and configuration
+   */
+  createAgent() {
+    const agentConfig = {
+      llm: this.model,
+      tools: this.tools,
+    };
+
+    // Add system prompt if provided
+    if (this.config.systemPrompt) {
+      agentConfig.stateModifier = this.config.systemPrompt;
+    }
+
+    // Add custom state schema if provided
+    if (this.config.stateSchema) {
+      agentConfig.stateSchema = this.config.stateSchema;
+    }
+
+    // Add memory checkpointer if enabled
+    if (this.memory) {
+      agentConfig.checkpointer = this.memory;
+    }
+
+    // Create and return the agent
+    return createReactAgent(agentConfig);
+  }
+
+  /**
+   * Invoke the agent with messages
+   * @param {Object} input - Input object containing messages
+   * @param {Object} options - Optional configuration for the invocation
+   */
+  async invoke(input, options = {}) {
     try {
-      // Log the initial state for debugging
-      this.logger.info(`[${this.name}] Initial state:`, {
-        taskId: initialState.taskId,
-        filesCount: initialState.files
-          ? initialState.files.length
-          : "undefined",
-        filesPresent: !!initialState.files,
-        stateKeys: Object.keys(initialState),
-      });
+      // Ensure input has the correct format
+      const formattedInput = this.formatInput(input);
 
-      // Execute the workflow steps directly without LangGraph
-      let state = { ...initialState };
+      // Add any runtime configuration
+      const invokeOptions = {
+        ...options,
+        configurable: {
+          ...options.configurable,
+          // Add thread_id for memory if enabled
+          ...(this.memory && options.threadId
+            ? { thread_id: options.threadId }
+            : {}),
+        },
+      };
 
-      // Step 1: Validate files
-      state = await this.validateFiles(state);
+      // Invoke the agent
+      const result = await this.agent.invoke(formattedInput, invokeOptions);
 
-      // Step 2: Process files
-      state = await this.processFiles(state);
-
-      // Step 3: Build context
-      state = await this.buildContext(state);
-
-      // Step 4: Process with AI
-      state = await this.processWithAI(state);
-
-      // Step 5: Format result
-      state = await this.formatResult(state);
-
-      // Step 6: Persist state
-      state = await this.persistState(state);
-
-      // Debug the result state
-      this.logger.info(`[${this.name}] Final state:`, {
-        taskId: state.taskId,
-        filesCount: state.files ? state.files.length : "undefined",
-        filesPresent: !!state.files,
-        resultPresent: !!state.result,
-        error: state.error,
-      });
-
-      return state;
+      return this.formatOutput(result);
     } catch (error) {
-      this.logger.error(`[${this.name}] Execution error:`, error);
-
-      if (initialState.taskId && initialState.taskId !== "") {
-        await AgentTask.findByIdAndUpdate(initialState.taskId, {
-          status: "failed",
-          error: error.message,
-          completedAt: new Date(),
-        });
-      }
-
+      console.error("[BaseAgent] Invocation error:", error);
       throw error;
     }
   }
+
+  /**
+   * Stream the agent's response
+   * @param {Object} input - Input object containing messages
+   * @param {Object} options - Optional configuration for streaming
+   */
+  async *stream(input, options = {}) {
+    try {
+      const formattedInput = this.formatInput(input);
+
+      const streamOptions = {
+        ...options,
+        streamMode: options.streamMode || "values",
+        configurable: {
+          ...options.configurable,
+          ...(this.memory && options.threadId
+            ? { thread_id: options.threadId }
+            : {}),
+        },
+      };
+
+      const stream = await this.agent.stream(formattedInput, streamOptions);
+
+      for await (const chunk of stream) {
+        yield this.formatStreamChunk(chunk);
+      }
+    } catch (error) {
+      console.error("[BaseAgent] Streaming error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Format input for the agent
+   */
+  formatInput(input) {
+    // Handle null or undefined input
+    if (input === null || input === undefined) {
+      throw new Error("Input cannot be null or undefined");
+    }
+
+    // If input is already properly formatted, return as is
+    if (input.messages) {
+      return input;
+    }
+
+    // If input is a string, convert to message format
+    if (typeof input === "string") {
+      return {
+        messages: [{ role: "user", content: input }],
+      };
+    }
+
+    // If input is an array of messages, wrap it
+    if (Array.isArray(input)) {
+      return { messages: input };
+    }
+
+    // If input is a single message object with role and content
+    if (input.role && input.content) {
+      return {
+        messages: [input],
+      };
+    }
+
+    // Otherwise, throw an error for invalid input
+    throw new Error(
+      "Invalid input format. Expected string, message object, or messages array."
+    );
+  }
+
+  /**
+   * Format output from the agent
+   */
+  formatOutput(result) {
+    // Extract the last message if available
+    if (result.messages && result.messages.length > 0) {
+      const lastMessage = result.messages[result.messages.length - 1];
+
+      return {
+        content: lastMessage.content || "",
+        messages: result.messages,
+        toolCalls: lastMessage.tool_calls || [],
+        raw: result,
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Format streaming chunks
+   */
+  formatStreamChunk(chunk) {
+    if (chunk.messages) {
+      const lastMessage = chunk.messages[chunk.messages.length - 1];
+      return {
+        content: lastMessage.content || "",
+        toolCalls: lastMessage.tool_calls || [],
+        messages: chunk.messages,
+      };
+    }
+    return chunk;
+  }
+
+  /**
+   * Add custom tools to the agent
+   * @param {Array} tools - Array of LangChain tools
+   */
+  addTools(tools) {
+    this.tools = [...this.tools, ...tools];
+    // Recreate the agent with new tools
+    this.agent = this.createAgent();
+  }
+
+  /**
+   * Update agent configuration
+   * @param {Object} newConfig - New configuration options
+   */
+  updateConfig(newConfig) {
+    this.config = { ...this.config, ...newConfig };
+
+    // Recreate model if model config changed
+    if (newConfig.modelName || newConfig.temperature || newConfig.maxTokens) {
+      this.model = new ChatAnthropic({
+        model: this.config.modelName,
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        temperature: this.config.temperature,
+        maxTokens: this.config.maxTokens,
+      });
+    }
+
+    // Recreate agent with new config
+    this.agent = this.createAgent();
+  }
+
+  /**
+   * Get available tools
+   */
+  getTools() {
+    return this.tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+    }));
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig() {
+    return { ...this.config };
+  }
 }
 
-module.exports = BaseAgent;
+// Export a factory function for creating agents
+export function createBaseAgent(config = {}) {
+  return new BaseAgent(config);
+}
+
+// Also export as default
+export default BaseAgent;

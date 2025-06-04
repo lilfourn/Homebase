@@ -17,3 +17,7 @@
 ## OpenAI
 
 - OpenAI Node.js SDK: `/openai/openai-node`
+
+## Langchain
+
+- LangchainJS: `/langchain-ai/langchainjs`
