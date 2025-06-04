@@ -1,10 +1,10 @@
 const AgentTask = require("../models/agentTask.model");
 const AgentConversation = require("../models/agentConversation.model");
 const AgentTemplate = require("../models/agentTemplate.model");
-const hybridDataService = require("../services/hybridDataService");
-const agentTaskQueue = require("../services/queues/agentTaskQueue");
+// const hybridDataService = require("../services/hybridDataService"); // Removed
+// const agentTaskQueue = require("../services/queues/agentTaskQueue"); // Removed - no queuing
 const googleDriveService = require("../services/googleDrive/googleDriveService");
-const fileProcessingService = require("../services/fileProcessingService");
+// const fileProcessingService = require("../services/fileProcessingService"); // Removed
 const { generateTaskTitle } = require("../utils/taskTitleGenerator");
 const User = require("../models/users.model");
 
@@ -19,13 +19,12 @@ const agentController = {
       const userId = authData.userId;
       const { courseInstanceId, taskName, agentType, config, files } = req.body;
 
-      await hybridDataService.validateCourseOwnership(userId, courseInstanceId);
+      // await hybridDataService.validateCourseOwnership(userId, courseInstanceId); // TODO: Implement validation
       const fileIds = files.map((f) => f.fileId);
-      const validatedFiles = await hybridDataService.validateFilesForTask(
-        userId,
-        fileIds
-      );
-      const usage = await hybridDataService.getUserUsageStats(userId);
+      // const validatedFiles = await hybridDataService.validateFilesForTask(userId, fileIds); // TODO: Implement validation
+      const validatedFiles = files; // Temporarily use files as-is
+      // const usage = await hybridDataService.getUserUsageStats(userId); // TODO: Implement usage stats
+      const usage = { tasksThisMonth: 0, monthlyLimit: 100, remainingTasks: 100 }; // Temporary default
 
       if (usage.remainingTasks <= 0) {
         return res
@@ -129,29 +128,17 @@ const agentController = {
         const buffer = Buffer.concat(chunks);
 
         // Process file to extract text
-        const processedFiles = await fileProcessingService.processFiles(
-          [
-            {
-              id: firstFile.fileId,
-              fileName: firstFile.fileName,
-              mimeType: firstFile.mimeType,
-              size: firstFile.fileSize,
-              buffer: buffer,
-            },
-          ],
-          {
-            validateSizes: false,
-            extractMetadata: false,
-            deduplicateContent: false,
-            chunkContent: false,
-            performSecurityScan: false,
-          }
-        );
+        // const processedFiles = await fileProcessingService.processFiles(...); // TODO: Implement file processing
+        // For now, use filename as context
+        const processedFiles = [{
+          content: `File: ${firstFile.fileName}`,
+          metadata: { fileName: firstFile.fileName }
+        }];
 
-        if (processedFiles.files && processedFiles.files.length > 0) {
-          const filesWithContent = processedFiles.files.map((f) => ({
+        if (processedFiles && processedFiles.length > 0) {
+          const filesWithContent = processedFiles.map((f) => ({
             content: f.content || "",
-            fileName: f.fileName,
+            fileName: firstFile.fileName,
           }));
 
           // Generate title using AI
@@ -215,20 +202,19 @@ const agentController = {
 
       // Course ownership validation is now optional
       if (courseInstanceId) {
-        await hybridDataService.validateCourseOwnership(userId, courseInstanceId);
+        // await hybridDataService.validateCourseOwnership(userId, courseInstanceId); // TODO: Implement validation
       }
       
       // Handle files validation - skip for researcher with prompt only
       let validatedMongoFiles = [];
       if (files && files.length > 0) {
         const fileIds = files.map((f) => f.fileId);
-        validatedMongoFiles = await hybridDataService.validateFilesForTask(
-          userId,
-          fileIds
-        );
+        // validatedMongoFiles = await hybridDataService.validateFilesForTask(userId, fileIds); // TODO: Implement validation
+        validatedMongoFiles = files; // Temporarily use files as-is
       }
 
-      const usageStats = await hybridDataService.getUserUsageStats(userId);
+      // const usageStats = await hybridDataService.getUserUsageStats(userId); // TODO: Implement usage stats
+      const usageStats = { tasksThisMonth: 0, monthlyLimit: 100, remainingTasks: 100 }; // Temporary default
       if (usageStats.remainingTasks <= 0) {
         return res
           .status(429)
@@ -268,31 +254,18 @@ const agentController = {
         throw new Error("Failed to create agent task in MongoDB.");
       }
 
-      const jobId = await agentTaskQueue.addTask(
-        {
-          taskId, // MongoDB document _id
-          userId,
-          courseInstanceId,
-          agentType: createdTask.agentType,
-          taskName: createdTask.taskName,
-          config: createdTask.config,
-          files: validatedMongoFiles, // Worker might still want the richer validatedFiles object
-        },
-        { attempts: 3 }
-      );
-
-      await AgentTask.findByIdAndUpdate(taskId, { jobId }); // Save jobId to the task
-
+      // Since queuing is removed, mark task as created but not processed
+      // You'll need to implement your own processing logic
       console.log(
-        `[AgentController] MongoDB Task ${taskId} created and queued as job ${jobId}`
+        `[AgentController] MongoDB Task ${taskId} created (no queuing)`
       );
-      await hybridDataService.incrementUserTaskCount(userId);
+      // await hybridDataService.incrementUserTaskCount(userId); // TODO: Implement task count increment
 
       res.status(201).json({
         success: true,
         taskId,
-        jobId,
-        message: "Task created and queued for processing",
+        jobId: taskId, // Use taskId as jobId for compatibility
+        message: "Task created successfully",
         task: createdTask, // Return the created task object
       });
     } catch (error) {
@@ -590,7 +563,13 @@ const agentController = {
     try {
       const authData = req.auth();
       const userId = authData.userId;
-      const usage = await hybridDataService.getUserUsageStats(userId);
+      // const usage = await hybridDataService.getUserUsageStats(userId); // TODO: Implement usage stats
+      const usage = { 
+        tasksThisMonth: 0, 
+        monthlyLimit: 100, 
+        remainingTasks: 100,
+        resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()
+      }; // Temporary default
       res.json({ success: true, data: usage });
     } catch (error) {
       console.error("Error getting user usage:", error);
@@ -626,21 +605,21 @@ const agentController = {
         });
       }
 
-      // Cancel the Bull job if it exists
-      if (task.jobId) {
-        try {
-          const job = await agentTaskQueue.getJob(task.jobId);
-          if (job) {
-            await job.remove();
-            console.log(`[AgentController] Cancelled Bull job ${task.jobId}`);
-          }
-        } catch (jobError) {
-          console.error(
-            `[AgentController] Error cancelling Bull job:`,
-            jobError
-          );
-        }
-      }
+      // Queue system removed - no job to cancel
+      // if (task.jobId) {
+      //   try {
+      //     const job = await agentTaskQueue.getJob(task.jobId);
+      //     if (job) {
+      //       await job.remove();
+      //       console.log(`[AgentController] Cancelled Bull job ${task.jobId}`);
+      //     }
+      //   } catch (jobError) {
+      //     console.error(
+      //       `[AgentController] Error cancelling Bull job:`,
+      //       jobError
+      //     );
+      //   }
+      // }
 
       // Update task status to cancelled
       const updatedTask = await AgentTask.findByIdAndUpdate(
@@ -669,51 +648,69 @@ const agentController = {
     }
   },
 
-  // Job/Queue status methods remain as they are, interacting with Bull directly.
+  // Queue system removed - job status not available
   async getJobStatus(req, res) {
     try {
       const { jobId } = req.params;
-      const job = await agentTaskQueue.getJob(jobId);
-      if (!job) {
-        return res.status(404).json({ success: false, error: "Job not found" });
+      // Since we're using taskId as jobId, look up the task
+      const task = await AgentTask.findById(jobId);
+      if (!task) {
+        return res.status(404).json({ success: false, error: "Task not found" });
       }
-      const state = await job.getState();
-      const progress = job.progress();
       res.json({
         success: true,
         job: {
-          id: job.id,
-          state,
-          progress,
-          data: job.data,
-          result: job.returnvalue,
-          failedReason: job.failedReason,
-          createdAt: new Date(job.timestamp),
-          processedAt: job.processedOn ? new Date(job.processedOn) : null,
-          completedAt: job.finishedOn ? new Date(job.finishedOn) : null,
+          id: task._id,
+          state: task.status,
+          progress: task.progress || 0,
+          data: { taskId: task._id, agentType: task.agentType },
+          result: task.result,
+          failedReason: task.error,
+          createdAt: task.createdAt,
+          processedAt: task.startedAt,
+          completedAt: task.completedAt,
         },
       });
     } catch (error) {
-      console.error("[AgentController] Error getting job status:", error);
+      console.error("[AgentController] Error getting task status:", error);
       res
         .status(500)
-        .json({ success: false, error: "Failed to get job status" });
+        .json({ success: false, error: "Failed to get task status" });
     }
   },
   async getQueueStatus(req, res) {
     try {
-      const stats = await agentTaskQueue.getQueueStats();
+      // Queue system removed - return basic task statistics instead
+      const stats = {
+        waiting: await AgentTask.countDocuments({ status: "queued" }),
+        active: await AgentTask.countDocuments({ status: "processing" }),
+        completed: await AgentTask.countDocuments({ status: "completed" }),
+        failed: await AgentTask.countDocuments({ status: "failed" }),
+      };
       res.json({ success: true, stats, timestamp: new Date().toISOString() });
     } catch (error) {
-      console.error("[AgentController] Error getting queue status:", error);
+      console.error("[AgentController] Error getting task statistics:", error);
       res
         .status(500)
-        .json({ success: false, error: "Failed to get queue status" });
+        .json({ success: false, error: "Failed to get task statistics" });
     }
   },
   async getQueueDashboard(req, res) {
     try {
-      const dashboardData = await agentTaskQueue.getDashboardData();
+      // Queue system removed - return basic dashboard data from MongoDB
+      const dashboardData = {
+        overview: {
+          totalTasks: await AgentTask.countDocuments(),
+          completedTasks: await AgentTask.countDocuments({ status: "completed" }),
+          failedTasks: await AgentTask.countDocuments({ status: "failed" }),
+          activeTasks: await AgentTask.countDocuments({ status: "processing" }),
+          queuedTasks: await AgentTask.countDocuments({ status: "queued" }),
+        },
+        recentTasks: await AgentTask.find()
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select("taskName agentType status createdAt completedAt"),
+      };
       res.json({ success: true, data: dashboardData });
     } catch (error) {
       console.error("[AgentController] Error getting dashboard data:", error);

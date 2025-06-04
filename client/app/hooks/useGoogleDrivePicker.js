@@ -43,10 +43,7 @@ export function useGoogleDrivePicker({ courseId, onFilesSelected, onError }) {
       return;
     }
 
-    if (!courseId) {
-      onError?.('Course information is missing. Cannot import files.');
-      return;
-    }
+    // courseId is optional - files can be imported globally without a course
 
     setIsLoading(true);
 

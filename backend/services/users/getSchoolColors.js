@@ -1,57 +1,71 @@
+import "dotenv/config";
 import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
+import { z } from "zod";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const SchoolColorsSchema = z.object({
+  primary_color: z
+    .string()
+    .describe(
+      "The primary brand color of the school in hex format (e.g., #FF5733)"
+    ),
+  secondary_color: z
+    .string()
+    .describe(
+      "The secondary brand color of the school in hex format (e.g., #33A1FF)"
+    ),
+  school_name: z.string().describe("The official name of the school"),
+  confidence: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("Confidence level of the color accuracy (0-1)"),
+  source: z
+    .string()
+    .describe(
+      "Brief description of where these colors are commonly used (e.g., 'official logo and athletic uniforms')"
+    ),
 });
 
-async function getSchoolColors(schoolName) {
+export async function getSchoolColors(schoolName) {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Using the fastest model as requested
+    if (!schoolName) {
+      throw new Error("School name is required");
+    }
+
+    const completion = await client.beta.chat.completions.parse({
+      model: "gpt-4o-2024-08-06",
       messages: [
         {
           role: "system",
-          content:
-            'You are a helpful assistant that returns a JSON object with primary and secondary hex color codes for a given school. For example, if the school is "University of California, Berkeley", you should return {"primaryColor": "#003262", "secondaryColor": "#FDB515"}. Only return the JSON object.',
+          content: `You are an expert on university and college branding. Your task is to identify the official primary and secondary brand colors for educational institutions. Always provide colors in hex format. If you're unsure about specific colors, provide your best estimate based on commonly known school colors and indicate lower confidence.`,
         },
         {
           role: "user",
-          content: `Get the primary and secondary colors for ${schoolName}.`,
+          content: `What are the official primary and secondary brand colors for ${schoolName}? Please provide the hex color codes.`,
         },
       ],
-      temperature: 0.2, // Lower temperature for more deterministic and factual output
+      response_format: zodResponseFormat(SchoolColorsSchema, "school_colors"),
     });
 
-    const content = completion.choices[0].message.content;
-
-    // Attempt to parse the JSON string.
-    try {
-      const colors = JSON.parse(content);
-      // Validate that the expected color properties exist
-      if (colors && colors.primaryColor && colors.secondaryColor) {
-        return colors;
-      } else {
-        console.error(
-          "OpenAI response did not contain expected color properties:",
-          content
-        );
-        // Fallback or default colors if parsing/validation fails
-        return { primaryColor: "#000000", secondaryColor: "#FFFFFF" };
-      }
-    } catch (parseError) {
-      console.error(
-        "Error parsing JSON from OpenAI response:",
-        parseError,
-        "Original content:",
-        content
-      );
-      // Fallback or default colors if JSON parsing fails
-      return { primaryColor: "#000000", secondaryColor: "#FFFFFF" };
+    const message = completion.choices[0]?.message;
+    if (message?.parsed) {
+      return {
+        success: true,
+        data: message.parsed,
+      };
+    } else {
+      throw new Error("Failed to parse school colors response");
     }
   } catch (error) {
-    console.error("Error fetching school colors from OpenAI:", error);
-    // Fallback or default colors in case of API error
-    return { primaryColor: "#000000", secondaryColor: "#FFFFFF" };
+    console.error("Error fetching school colors:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to fetch school colors",
+      data: null,
+    };
   }
 }
 

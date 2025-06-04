@@ -1,17 +1,17 @@
 "use client";
 
 import { useAuth, useUser } from "@clerk/nextjs";
-import { AlertCircle, ArrowLeft, Brain, FileText, Loader2, Plus, Sparkles, X, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeft, Brain, FileText, Loader2, Plus, Sparkles, X, Zap, Upload, ChevronLeft, Star, BookOpen, Info, BarChart, Target, Award, Clock, CheckCircle, RefreshCw } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { generateTaskTitle } from "../../../api/agents.api";
 import { getImportedFiles } from "../../../api/googleDrive.api";
 import { fetchUserByClerkId } from "../../../api/users.api";
 import { useAgents } from "../../../hooks/agents/useAgents";
 import { AgentErrorBoundary } from "../../../components/course/agent/AgentErrorBoundary";
-import FileLibrary from "../../../components/course/agent/FileLibrary";
 import PastCompletions from "../../../components/course/agent/PastCompletions";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useGoogleDrivePicker } from "../../../hooks/useGoogleDrivePicker";
 
 interface SelectedFile {
   id: string;
@@ -19,6 +19,7 @@ interface SelectedFile {
   type: string;
   size: number;
   mimeType?: string;
+  uploadedAt?: string;
 }
 
 interface AgentTask {
@@ -45,6 +46,53 @@ export default function NoteTakerAgentPage() {
   const router = useRouter();
   const [isGoogleDriveConnected, setIsGoogleDriveConnected] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(true);
+
+  // Helper function to get file icon based on type
+  const getFileIcon = (type: string) => {
+    const iconClass = "w-5 h-5";
+    const iconColor = "text-gray-600";
+    
+    switch (type.toLowerCase()) {
+      case "pdf":
+        return <FileText className={`${iconClass} text-red-600`} />;
+      case "doc":
+      case "docx":
+        return <FileText className={`${iconClass} text-blue-600`} />;
+      case "ppt":
+      case "pptx":
+        return <FileText className={`${iconClass} text-orange-600`} />;
+      case "xls":
+      case "xlsx":
+        return <FileText className={`${iconClass} text-green-600`} />;
+      default:
+        return <FileText className={`${iconClass} ${iconColor}`} />;
+    }
+  };
+
+  // Helper function to format upload date
+  const formatUploadDate = (dateString?: string) => {
+    if (!dateString) return "Recently";
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffHours === 0) {
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        return diffMinutes <= 1 ? "Just now" : `${diffMinutes} minutes ago`;
+      }
+      return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+    } else if (diffDays === 1) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   const courseColors = React.useMemo(() => {
     if (typeof window !== "undefined") {
@@ -92,7 +140,6 @@ export default function NoteTakerAgentPage() {
   const [courseFiles, setCourseFiles] = useState<SelectedFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
-  const [showFileLibrary, setShowFileLibrary] = useState(false);
   const [noteConfig, setNoteConfig] = useState({
     mode: "comprehensive",
     model: "gpt-4o-mini",
@@ -101,6 +148,18 @@ export default function NoteTakerAgentPage() {
       includeSummary: true,
       includeDiagrams: true,
     }
+  });
+
+  // Google Drive picker hook
+  const { openPicker, isLoading: isImporting } = useGoogleDrivePicker({
+    courseId: null, // No specific course for global files
+    onFilesSelected: (result) => {
+      // Reload files after successful import
+      loadCourseFiles();
+    },
+    onError: (errorMessage) => {
+      console.error("Error importing files:", errorMessage);
+    },
   });
 
   // Load note-taker tasks on mount
@@ -154,13 +213,16 @@ export default function NoteTakerAgentPage() {
       const response = await getImportedFiles(token, null);
 
       if (response.files && Array.isArray(response.files)) {
-        const files = response.files.map((file) => ({
-          id: file.fileId,
-          name: file.fileName,
-          type: file.mimeType.split("/")[1] || "unknown",
-          size: file.size || 0,
-          mimeType: file.mimeType,
-        }));
+        const files = response.files
+          .map((file) => ({
+            id: file.fileId,
+            name: file.fileName,
+            type: file.mimeType.split("/")[1] || "unknown",
+            size: file.size || 0,
+            mimeType: file.mimeType,
+            uploadedAt: file.uploadedAt || file.createdAt || new Date().toISOString(),
+          }))
+          .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
         setCourseFiles(files);
       } else {
         console.error("[NoteTakerAgent] Unexpected files response:", response);
@@ -314,285 +376,449 @@ export default function NoteTakerAgentPage() {
 
   return (
     <AgentErrorBoundary>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/dashboard/agents")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-violet-50">
-                <Image
-                  src="/agentIcons/NoteTaker.png"
-                  alt="Note Taker"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Note Taker Agent</h1>
-                <p className="text-sm text-gray-600">Transform lectures and documents into organized study notes</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Create Task Section */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-violet-100">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-violet-600" />
-            Create New Note Taking Task
-          </h3>
-
-          {/* File Selection */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-base font-medium text-gray-900">
-                Select Files to Process
-              </h4>
-              <button
-                onClick={() => setShowFileLibrary(true)}
-                className="inline-flex items-center px-4 py-2 bg-violet-50 text-violet-700 text-sm font-medium rounded-xl hover:bg-violet-100 border border-violet-200 transition-all duration-200"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Browse Files
-              </button>
-            </div>
-            {selectedFiles.length > 0 ? (
-              <div className="space-y-2">
-                {selectedFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="flex items-center justify-between p-3 bg-violet-50 rounded-xl border border-violet-100 hover:border-violet-200 transition-all duration-200"
+      <div className="h-screen bg-gray-50 overflow-hidden">
+        <div className="h-full mx-auto p-4 flex flex-col">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm flex-1 flex flex-col">
+            {/* Header Section */}
+            <div className="bg-[var(--custom-primary-color)] relative">
+              <div className="relative px-8 py-6">
+                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => router.push("/dashboard/agents")}
+                    className="text-white hover:opacity-80 transition-opacity"
                   >
-                    <div className="flex items-center">
-                      <FileText className="h-4 w-4 text-violet-600 mr-3" />
-                      <span className="text-sm text-gray-700 font-medium">{file.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleFileSelect(file)}
-                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-1"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-medium text-white">Note Taker Agent</h1>
+                    <p className="text-white text-opacity-70 text-sm">AI-Powered Study Companion</p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No files selected</p>
-              </div>
-            )}
-          </div>
-
-          {/* Note Configuration */}
-          <div className="mb-6 p-4 bg-violet-50 rounded-xl border border-violet-100">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Note Taking Configuration</h4>
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={noteConfig.customSettings.includeKeyTerms}
-                  onChange={(e) =>
-                    setNoteConfig({
-                      ...noteConfig,
-                      customSettings: {
-                        ...noteConfig.customSettings,
-                        includeKeyTerms: e.target.checked,
-                      },
-                    })
-                  }
-                  className="w-4 h-4 text-violet-600 rounded"
-                />
-                <span className="text-sm text-gray-700">Include key terms and definitions</span>
-              </label>
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={noteConfig.customSettings.includeSummary}
-                  onChange={(e) =>
-                    setNoteConfig({
-                      ...noteConfig,
-                      customSettings: {
-                        ...noteConfig.customSettings,
-                        includeSummary: e.target.checked,
-                      },
-                    })
-                  }
-                  className="w-4 h-4 text-violet-600 rounded"
-                />
-                <span className="text-sm text-gray-700">Include chapter summaries</span>
-              </label>
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={noteConfig.customSettings.includeDiagrams}
-                  onChange={(e) =>
-                    setNoteConfig({
-                      ...noteConfig,
-                      customSettings: {
-                        ...noteConfig.customSettings,
-                        includeDiagrams: e.target.checked,
-                      },
-                    })
-                  }
-                  className="w-4 h-4 text-violet-600 rounded"
-                />
-                <span className="text-sm text-gray-700">Include diagram references</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Create Button */}
-          <button
-            onClick={() => handleGenerateTitle()}
-            disabled={selectedFiles.length === 0 || isLoading || isGeneratingTitle}
-            className={`w-full py-3.5 px-4 rounded-xl font-semibold transition-all duration-200 transform ${
-              selectedFiles.length === 0 || isLoading || isGeneratingTitle
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-violet-600 text-white hover:bg-violet-700 hover:scale-[1.02] active:scale-[0.98]"
-            }`}
-          >
-            {isLoading || isGeneratingTitle ? (
-              <span className="flex items-center justify-center">
-                <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                {isGeneratingTitle ? "Generating Title..." : "Creating Task..."}
-              </span>
-            ) : (
-              <span className="flex items-center justify-center">
-                <Zap className="h-5 w-5 mr-2" />
-                Create Note Taking Task
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Active Tasks */}
-        {currentlyProcessingTask && (
-          <div className="bg-violet-50 border border-violet-200 rounded-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative">
-                <Brain className="w-6 h-6 text-violet-600" />
-                <div className="absolute -bottom-1 -right-1">
-                  <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-white rounded-xl px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-400" />
+                      <span className="text-[var(--custom-primary-color)] font-semibold">2340 XP</span>
+                    </div>
+                  </div>
+                  <button className="w-10 h-10 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg flex items-center justify-center transition-all duration-200 shadow-sm hover:shadow-md">
+                    <Info className="h-5 w-5 text-[var(--custom-primary-color)]" />
+                  </button>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Processing Task</h3>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{currentlyProcessingTask.taskName}</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Status: {currentlyProcessingTask.status}
-                </p>
               </div>
-              {currentlyProcessingTask.progress !== undefined && (
-                <div>
-                  <div className="w-full bg-violet-200 rounded-full h-2">
-                    <div
-                      className="bg-violet-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${currentlyProcessingTask.progress}%` }}
-                    />
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 overflow-hidden p-6">
+              <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column */}
+            <div className="lg:col-span-2 overflow-y-auto space-y-6 pr-2">
+              {/* Upload New Files */}
+              <div className="bg-gray-50 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Upload className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Upload New Files</h2>
+                </div>
+                
+                <div className="space-y-4">
+                  <div
+                    onClick={() => openPicker()}
+                    className={`border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-400 transition-colors cursor-pointer group ${
+                      isImporting ? 'opacity-50 cursor-wait' : ''
+                    }`}
+                  >
+                    <div className="flex justify-center mb-4">
+                      <div className="p-3 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-colors">
+                        {isImporting ? (
+                          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        ) : (
+                          <Upload className="w-8 h-8 text-indigo-600" />
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-gray-600 mb-1">
+                      {isImporting ? 'Importing files...' : 'Click to browse Google Drive'}
+                    </p>
+                    <p className="text-sm text-gray-500">Import PDF, DOC, PPT files • +50 XP per file</p>
                   </div>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {currentlyProcessingTask.progress}% complete
+                  
+                  {/* Selected Files Preview */}
+                  {selectedFiles.length > 0 && (
+                    <div className="bg-indigo-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-indigo-900">
+                          {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
+                        </p>
+                        <button
+                          onClick={() => setSelectedFiles([])}
+                          className="text-sm text-indigo-600 hover:text-indigo-700"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFiles.slice(0, 3).map((file) => (
+                          <span
+                            key={file.id}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-white text-xs font-medium text-gray-700"
+                          >
+                            {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
+                          </span>
+                        ))}
+                        {selectedFiles.length > 3 && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-white text-xs font-medium text-gray-500">
+                            +{selectedFiles.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Files */}
+              <div className="bg-gray-50 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-indigo-600" />
+                    <h2 className="text-lg font-semibold text-gray-900">Files</h2>
+                    {courseFiles.length > 0 && (
+                      <span className="text-sm text-gray-500">({courseFiles.length})</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={loadCourseFiles}
+                    disabled={filesLoading}
+                    className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                    title="Refresh files"
+                  >
+                    {filesLoading ? (
+                      <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 text-gray-600" />
+                    )}
+                  </button>
+                </div>
+                
+                {filesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                  </div>
+                ) : courseFiles.length > 0 ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {courseFiles.map((file) => {
+                      const isSelected = selectedFiles.some((f) => f.id === file.id);
+                      return (
+                        <div
+                          key={file.id}
+                          onClick={() => handleFileSelect(file)}
+                          className={`flex items-center justify-between p-4 rounded-xl transition-all cursor-pointer ${
+                            isSelected 
+                              ? 'bg-indigo-50 border-2 border-indigo-200 hover:bg-indigo-100' 
+                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${
+                              isSelected ? 'bg-indigo-200' : 'bg-gray-100'
+                            }`}>
+                              {getFileIcon(file.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{file.name}</p>
+                              <p className="text-sm text-gray-500">
+                                {formatUploadDate(file.uploadedAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isSelected && (
+                              <CheckCircle className="w-5 h-5 text-indigo-600" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p>No files uploaded yet</p>
+                    <p className="text-sm mt-2">Import files from Google Drive to see them here</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="overflow-y-auto space-y-6 pl-2">
+              {/* AI Configuration */}
+              <div className="bg-gray-50 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Brain className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">AI Configuration</h2>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <Target className="w-5 h-5 text-red-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">Key Terms & Definitions</p>
+                        <p className="text-xs text-gray-600">Extract important terminology</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={noteConfig.customSettings.includeKeyTerms}
+                        onChange={(e) =>
+                          setNoteConfig({
+                            ...noteConfig,
+                            customSettings: {
+                              ...noteConfig.customSettings,
+                              includeKeyTerms: e.target.checked,
+                            },
+                          })
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">Chapter Summaries</p>
+                        <p className="text-xs text-gray-600">Generate section overviews</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={noteConfig.customSettings.includeSummary}
+                        onChange={(e) =>
+                          setNoteConfig({
+                            ...noteConfig,
+                            customSettings: {
+                              ...noteConfig.customSettings,
+                              includeSummary: e.target.checked,
+                            },
+                          })
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <BarChart className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">Diagram Analysis</p>
+                        <p className="text-xs text-gray-600">Analyze visual elements</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={noteConfig.customSettings.includeDiagrams}
+                        onChange={(e) =>
+                          setNoteConfig({
+                            ...noteConfig,
+                            customSettings: {
+                              ...noteConfig.customSettings,
+                              includeDiagrams: e.target.checked,
+                            },
+                          })
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-5 h-5 text-yellow-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">Smart Highlights</p>
+                        <p className="text-xs text-gray-600">AI-powered key points</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={true}
+                        disabled
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl opacity-60">
+                    <div className="flex items-center gap-3">
+                      <Brain className="w-5 h-5 text-purple-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">AI Insights</p>
+                        <p className="text-xs text-gray-600">Deep learning analysis</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Achievements */}
+              <div className="bg-gray-50 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Award className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Achievements</h2>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <Star className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">First Upload</p>
+                      <p className="text-xs text-gray-600">Upload your first file</p>
+                    </div>
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Zap className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Speed Reader</p>
+                      <p className="text-xs text-gray-600">Process 5 files in one day</p>
+                    </div>
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl opacity-60">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Brain className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Note Master</p>
+                      <p className="text-xs text-gray-600">Create 100 AI notes</p>
+                    </div>
+                    <div className="text-xs text-gray-500">23/100</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+              </div>
+
+              {/* Create Button */}
+              <div className="mt-6">
+            <button
+              onClick={() => handleGenerateTitle()}
+              disabled={selectedFiles.length === 0 || isLoading || isGeneratingTitle}
+              className={`w-full py-4 px-6 rounded-2xl font-semibold transition-all duration-200 transform flex items-center justify-center gap-3 ${
+                selectedFiles.length === 0 || isLoading || isGeneratingTitle
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+              }`}
+            >
+              {isLoading || isGeneratingTitle ? (
+                <>
+                  <Loader2 className="animate-spin h-5 w-5" />
+                  <span>{isGeneratingTitle ? "Generating Title..." : "Creating Task..."}</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-5 w-5" />
+                  <span>Create AI-Powered Notes</span>
+                </>
+              )}
+            </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Tasks and Errors - Outside main container for better visibility */}
+        {(currentlyProcessingTask || error) && (
+          <div className="fixed bottom-4 left-4 right-4 max-w-5xl mx-auto space-y-4">
+            {currentlyProcessingTask && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative">
+                  <Brain className="w-6 h-6 text-indigo-600" />
+                  <div className="absolute -bottom-1 -right-1">
+                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Processing Task</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{currentlyProcessingTask.taskName}</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Status: {currentlyProcessingTask.status}
                   </p>
                 </div>
-              )}
-              <button
-                onClick={() => cancelTask(currentlyProcessingTask.id)}
-                className="text-sm text-red-600 hover:text-red-700 font-medium"
-              >
-                Cancel Task
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-              <button
-                onClick={clearError}
-                className="text-red-600 hover:text-red-800 transition-colors duration-200"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Past Completions */}
-        {completions.length > 0 && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Past Note Taking Tasks</h3>
-            <PastCompletions
-              completions={completions}
-              courseColors={{ primary: "#8b5cf6", secondary: "#a78bfa" }}
-            />
-          </div>
-        )}
-
-        {/* File Selection Modal */}
-        {showFileLibrary && (
-          <div
-            className="fixed inset-0 w-screen h-screen flex items-center justify-center p-4 z-50"
-            style={{
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              backdropFilter: "blur(4px)",
-              WebkitBackdropFilter: "blur(4px)",
-            }}
-          >
-            <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl max-w-4xl w-full max-h-[85vh] flex flex-col">
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">
-                Select Files
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Choose files from your Google Drive to process with the Note Taker agent.
-              </p>
-              <div className="flex-1 overflow-y-auto mb-6 -mx-2 px-2">
-                <FileLibrary
-                  onFileSelect={(files) => {
-                    setSelectedFiles(files);
-                  }}
-                  selectedFiles={selectedFiles}
-                  courseColors={{ primary: "#8b5cf6", secondary: "#a78bfa" }}
-                  isDisabled={false}
-                  courseFiles={courseFiles}
-                  filesLoading={filesLoading}
-                  courseId={null}
-                  onFilesUploaded={() => {
-                    loadCourseFiles();
-                  }}
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                {currentlyProcessingTask.progress !== undefined && (
+                  <div>
+                    <div className="w-full bg-indigo-200 rounded-full h-2">
+                      <div
+                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${currentlyProcessingTask.progress}%` }}
+                      />
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">
+                      {currentlyProcessingTask.progress}% complete
+                    </p>
+                  </div>
+                )}
                 <button
-                  onClick={() => setShowFileLibrary(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-600 cursor-pointer"
+                  onClick={() => cancelTask(currentlyProcessingTask.id)}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setShowFileLibrary(false)}
-                  className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-600 cursor-pointer"
-                >
-                  Done ({selectedFiles.length} selected)
+                  Cancel Task
                 </button>
               </div>
             </div>
+            )}
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                  <button
+                    onClick={clearError}
+                    className="text-red-600 hover:text-red-800 transition-colors duration-200"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
+
       </div>
     </AgentErrorBoundary>
   );

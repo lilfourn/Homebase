@@ -14,8 +14,8 @@ const { verifyWebhook } = require("@clerk/express");
 const syllabusRoutes = require("./routes/syllabus.routes");
 const todoRoutes = require("./routes/todo.route");
 const agentRoutes = require("./routes/agent.routes");
-const agentTaskQueue = require("./services/queues/agentTaskQueue");
-const agentTaskWorker = require("./services/workers/agentTaskWorker");
+// const agentTaskQueue = require("./services/queues/agentTaskQueue"); // Removed - no queuing
+// const agentTaskWorker = require("./services/workers/agentTaskWorker"); // Removed - no queuing
 const app = express();
 
 // Request timeout middleware
@@ -260,30 +260,30 @@ mongoose
     app.listen(8000, () => {
       console.log("Server is running on port 8000 successfully");
 
-      // Start processing agent tasks in the same process
-      console.log("[Agent] Starting agent task processor...");
-      agentTaskQueue.queue.process("process-agent-task", 2, async (job) => {
-        return await agentTaskWorker.processTask(job);
-      });
+      // Queue system removed - no task processing
+      // console.log("[Agent] Starting agent task processor...");
+      // agentTaskQueue.queue.process("process-agent-task", 2, async (job) => {
+      //   return await agentTaskWorker.processTask(job);
+      // });
 
-      // Queue event handlers
-      agentTaskQueue.queue.on("error", (error) => {
-        console.error("[Agent] Queue error:", error);
-      });
+      // // Queue event handlers
+      // agentTaskQueue.queue.on("error", (error) => {
+      //   console.error("[Agent] Queue error:", error);
+      // });
 
-      agentTaskQueue.queue.on("active", (job) => {
-        console.log(`[Agent] Job ${job.id} has started processing`);
-      });
+      // agentTaskQueue.queue.on("active", (job) => {
+      //   console.log(`[Agent] Job ${job.id} has started processing`);
+      // });
 
-      agentTaskQueue.queue.on("completed", (job, result) => {
-        console.log(`[Agent] Job ${job.id} completed successfully`);
-      });
+      // agentTaskQueue.queue.on("completed", (job, result) => {
+      //   console.log(`[Agent] Job ${job.id} completed successfully`);
+      // });
 
-      agentTaskQueue.queue.on("failed", (job, err) => {
-        console.error(`[Agent] Job ${job.id} failed:`, err.message);
-      });
+      // agentTaskQueue.queue.on("failed", (job, err) => {
+      //   console.error(`[Agent] Job ${job.id} failed:`, err.message);
+      // });
 
-      console.log("[Agent] Agent task processor started successfully");
+      // console.log("[Agent] Agent task processor started successfully");
     });
   })
   .catch((error) => {
@@ -294,16 +294,16 @@ mongoose
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, closing server...");
-  await agentTaskWorker.shutdown();
-  await agentTaskQueue.close();
+  // await agentTaskWorker.shutdown(); // Removed - no queuing
+  // await agentTaskQueue.close(); // Removed - no queuing
   await mongoose.connection.close();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
   console.log("SIGINT received, closing server...");
-  await agentTaskWorker.shutdown();
-  await agentTaskQueue.close();
+  // await agentTaskWorker.shutdown(); // Removed - no queuing
+  // await agentTaskQueue.close(); // Removed - no queuing
   await mongoose.connection.close();
   process.exit(0);
 });
