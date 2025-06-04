@@ -1,8 +1,8 @@
-const pdfParse = require("pdf-parse");
 const Syllabus = require("../models/syllabus.model");
 const User = require("../models/users.model");
 const googleDriveService = require("./googleDrive/googleDriveService");
 const aiService = require("./providers/aiService");
+const { FileProcessor } = require("./tools/fileProcessor");
 
 class SyllabusProcessingService {
   /**
@@ -109,34 +109,54 @@ class SyllabusProcessingService {
   }
 
   /**
-   * Extract text content from PDF file
+   * Extract text content from any file type using FileProcessor
    */
   async extractTextFromPDF(syllabus, tokens) {
     try {
-      // Download PDF content from Google Drive
-      const pdfStream = await googleDriveService.downloadFile(
+      // Download file content from Google Drive
+      const fileStream = await googleDriveService.downloadFile(
         tokens,
         syllabus.fileId
       );
 
       // Convert stream to buffer
       const chunks = [];
-      for await (const chunk of pdfStream) {
+      for await (const chunk of fileStream) {
         chunks.push(chunk);
       }
-      const pdfBuffer = Buffer.concat(chunks);
+      const fileBuffer = Buffer.concat(chunks);
 
-      // Extract text using pdf-parse
-      const pdfData = await pdfParse(pdfBuffer);
+      // Create file processor with optimized settings for syllabus processing
+      const processor = new FileProcessor({
+        chunkSize: 8000,        // Larger chunks for syllabus content
+        preserveStructure: true, // Keep document structure
+        cleanWhitespace: true,   // Clean formatting
+        includeMetadata: true    // Include file metadata
+      });
 
-      if (!pdfData.text || pdfData.text.trim().length === 0) {
-        throw new Error("No text content found in PDF");
+      // Process the file (works with PDF, DOCX, and other formats)
+      const result = await processor.processFile(fileBuffer, {
+        fileName: syllabus.fileName
+      });
+
+      if (!result.content || result.content.trim().length === 0) {
+        throw new Error("No text content found in file");
       }
 
-      return pdfData.text;
+      // Store metadata if available
+      if (result.metadata) {
+        syllabus.fileMetadata = result.metadata;
+      }
+
+      // Store structure if available (useful for AI parsing)
+      if (result.structure) {
+        syllabus.documentStructure = result.structure;
+      }
+
+      return result.content;
     } catch (error) {
-      console.error("Error extracting text from PDF:", error);
-      throw new Error(`PDF text extraction failed: ${error.message}`);
+      console.error("Error extracting text from file:", error);
+      throw new Error(`File text extraction failed: ${error.message}`);
     }
   }
 
