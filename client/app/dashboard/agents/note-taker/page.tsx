@@ -414,7 +414,7 @@ export default function NoteTakerAgentPage() {
             <div className="flex-1 overflow-hidden p-6">
               <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column */}
-            <div className="lg:col-span-2 overflow-y-auto space-y-6 pr-2">
+            <div className="lg:col-span-2 flex flex-col space-y-6 pr-2">
               {/* Upload New Files */}
               <div className="bg-gray-50 rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -479,7 +479,7 @@ export default function NoteTakerAgentPage() {
               </div>
 
               {/* Files */}
-              <div className="bg-gray-50 rounded-2xl p-6">
+              <div className="bg-gray-50 rounded-2xl p-6 flex flex-col flex-1">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-indigo-600" />
@@ -507,7 +507,7 @@ export default function NoteTakerAgentPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
                   </div>
                 ) : courseFiles.length > 0 ? (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 overflow-y-auto flex-1">
                     {courseFiles.map((file) => {
                       const isSelected = selectedFiles.some((f) => f.id === file.id);
                       return (
@@ -553,7 +553,7 @@ export default function NoteTakerAgentPage() {
             </div>
 
             {/* Right Column */}
-            <div className="overflow-y-auto space-y-6 pl-2">
+            <div className="space-y-6 pl-2 flex flex-col h-full">
               {/* AI Configuration */}
               <div className="bg-gray-50 rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -683,47 +683,42 @@ export default function NoteTakerAgentPage() {
                 </div>
               </div>
 
-              {/* Achievements */}
-              <div className="bg-gray-50 rounded-2xl p-6">
+              {/* Custom Rules */}
+              <div className="bg-gray-50 rounded-2xl p-6 mt-auto flex flex-col flex-1">
                 <div className="flex items-center gap-2 mb-4">
-                  <Award className="w-5 h-5 text-indigo-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Achievements</h2>
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Custom Rules</h2>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Star className="w-5 h-5 text-yellow-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">First Upload</p>
-                      <p className="text-xs text-gray-600">Upload your first file</p>
-                    </div>
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <Zap className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">Speed Reader</p>
-                      <p className="text-xs text-gray-600">Process 5 files in one day</p>
-                    </div>
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl opacity-60">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Brain className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">Note Master</p>
-                      <p className="text-xs text-gray-600">Create 100 AI notes</p>
-                    </div>
-                    <div className="text-xs text-gray-500">23/100</div>
+                <div className="flex flex-col flex-1">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Add custom instructions for how the AI should generate your notes
+                  </p>
+                  <textarea
+                    placeholder="Example: Focus on key concepts and definitions. Include practice problems for math topics. Summarize each section in bullet points..."
+                    className="flex-1 w-full p-4 text-sm border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    style={{ minHeight: '120px' }}
+                  />
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs text-gray-500">
+                      These rules will be applied to all notes generated
+                    </p>
+                    <button className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+                      View examples
+                    </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Generate Notes Button */}
+              <div className="mt-6">
+                <button
+                  disabled={true}
+                  className="w-full py-3 px-6 rounded-2xl font-semibold transition-all duration-200 bg-gray-200 text-gray-400 cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="h-5 w-5" />
+                  <span>Generate Notes</span>
+                </button>
               </div>
             </div>
               </div>
