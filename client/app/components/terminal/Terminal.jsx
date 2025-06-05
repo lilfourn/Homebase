@@ -8,12 +8,23 @@ import {
   Copy,
   Check,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Paperclip
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AutoExpandingInput from "./AutoExpandingInput";
+import AttachedFilesBar from "./AttachedFilesBar";
 
-export default function Terminal({ className, onMessage }) {
+import { forwardRef, useImperativeHandle } from "react";
+import { useAuth } from "@clerk/nextjs";
+
+const Terminal = forwardRef(({ 
+  className, 
+  onMessage,
+  selectedFiles = [],
+  courseFiles = [],
+  onFileSelect
+}, ref) => {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -25,8 +36,10 @@ export default function Terminal({ className, onMessage }) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const messagesEndRef = useRef(null);
   const terminalRef = useRef(null);
+  const { getToken } = useAuth();
 
   // Get custom colors from CSS variables - default values for SSR
   const [customColors, setCustomColors] = useState({ 
@@ -34,6 +47,67 @@ export default function Terminal({ className, onMessage }) {
     primaryDark: "#4c1d95", 
     textColor: "#ffffff" 
   });
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    attachFiles: async (filesToAttach) => {
+      // Process and attach files from the file list
+      if (!filesToAttach || filesToAttach.length === 0) return;
+      
+      // Convert selected files to the format expected by AttachedFilesBar
+      const newFiles = filesToAttach.map(file => ({
+        id: file.id,
+        fileId: file.id,
+        fileName: file.name,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        mimeType: file.mimeType,
+        uploadedAt: file.uploadedAt,
+        processing: true // Will be processed when added
+      }));
+      
+      // Add to attached files
+      setAttachedFiles(prev => [...prev, ...newFiles]);
+      
+      // Process each file
+      const token = await getToken();
+      
+      for (const file of newFiles) {
+        try {
+          const { processGoogleDriveFile } = await import("@/app/api/fileProcessing.api");
+          const result = await processGoogleDriveFile(file.fileId, file.fileName, token);
+          
+          // Update file with processed data
+          setAttachedFiles(prev => prev.map(f => 
+            f.id === file.id 
+              ? {
+                  ...f,
+                  ...result,
+                  processing: false,
+                  processed: true,
+                  error: null
+                }
+              : f
+          ));
+        } catch (error) {
+          console.error("Error processing file:", error);
+          
+          // Update file with error
+          setAttachedFiles(prev => prev.map(f => 
+            f.id === file.id 
+              ? {
+                  ...f,
+                  processing: false,
+                  processed: false,
+                  error: error.error || "Failed to process file"
+                }
+              : f
+          ));
+        }
+      }
+    }
+  }));
 
   // Update colors on client side only
   useEffect(() => {
@@ -94,16 +168,20 @@ export default function Terminal({ className, onMessage }) {
       id: Date.now(),
       type: "user",
       content: input.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
+      attachedFiles: attachedFiles.filter(f => f.processed) // Only include processed files
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
+    // Clear attached files after sending
+    setAttachedFiles([]);
+
     // Notify parent component if callback provided
     if (onMessage) {
-      onMessage(userMessage.content);
+      onMessage(userMessage.content, userMessage.attachedFiles);
     }
 
     // Simulate AI response (replace with actual API call)
@@ -188,12 +266,27 @@ export default function Terminal({ className, onMessage }) {
                 className="group"
               >
                 {message.type === "user" && (
-                  <div className="flex items-start gap-2">
-                    <span className="select-none" style={{ color: customColors.primary }}>
-                      [{formatTimestamp(message.timestamp)}]
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
-                    <span className="text-gray-700 flex-1">{message.content}</span>
+                  <div>
+                    <div className="flex items-start gap-2">
+                      <span className="select-none" style={{ color: customColors.primary }}>
+                        [{formatTimestamp(message.timestamp)}]
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
+                      <span className="text-gray-700 flex-1">{message.content}</span>
+                    </div>
+                    {message.attachedFiles && message.attachedFiles.length > 0 && (
+                      <div className="ml-6 mt-1 flex flex-wrap gap-1">
+                        {message.attachedFiles.map((file, index) => (
+                          <span 
+                            key={index}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            {file.fileName}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {message.type === "system" && (
@@ -240,15 +333,32 @@ export default function Terminal({ className, onMessage }) {
         </div>
       </div>
 
-      {/* Terminal Input - Auto-expanding */}
-      <AutoExpandingInput
-        value={input}
-        onChange={setInput}
-        onSubmit={handleSubmit}
-        isLoading={isLoading}
-        customColors={customColors}
-        className="border-t border-gray-200"
-      />
+      {/* Attached Files Bar */}
+      <div className="border-t border-gray-200">
+        <AttachedFilesBar
+          attachedFiles={attachedFiles}
+          setAttachedFiles={setAttachedFiles}
+          selectedGoogleDriveFiles={selectedFiles}
+          courseFiles={courseFiles}
+          onFileSelect={onFileSelect}
+          customColors={customColors}
+          className="px-4 pt-3"
+        />
+        
+        {/* Terminal Input - Auto-expanding */}
+        <AutoExpandingInput
+          value={input}
+          onChange={setInput}
+          onSubmit={handleSubmit}
+          isLoading={isLoading}
+          customColors={customColors}
+          hasAttachments={attachedFiles.length > 0}
+        />
+      </div>
     </div>
   );
-}
+});
+
+Terminal.displayName = 'Terminal';
+
+export default Terminal;

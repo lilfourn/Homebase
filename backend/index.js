@@ -14,6 +14,7 @@ const { verifyWebhook } = require("@clerk/express");
 const syllabusRoutes = require("./routes/syllabus.routes");
 const todoRoutes = require("./routes/todo.route");
 const agentRoutes = require("./routes/agent.routes");
+const fileProcessingRoutes = require("./routes/fileProcessing.routes");
 // const agentTaskQueue = require("./services/queues/agentTaskQueue"); // Removed - no queuing
 // const agentTaskWorker = require("./services/workers/agentTaskWorker"); // Removed - no queuing
 const app = express();
@@ -76,6 +77,7 @@ app.use("/api/google-drive", googleDriveRoute);
 app.use("/api/syllabus", syllabusRoutes);
 app.use("/api/todos", todoRoutes);
 app.use("/api/agents", agentRoutes);
+app.use("/api/file-processing", fileProcessingRoutes);
 
 app.get("/", async (req, res) => {
   res.send("Good Job");

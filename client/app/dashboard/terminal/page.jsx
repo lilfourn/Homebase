@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { 
   Bot, 
@@ -13,7 +13,8 @@ import {
   FileText,
   RefreshCw,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  Upload
 } from "lucide-react";
 import Terminal from "@/app/components/terminal/Terminal";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -30,6 +31,7 @@ export default function TerminalPage() {
   const [isGoogleDriveConnected, setIsGoogleDriveConnected] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const [hasCompletedCycle, setHasCompletedCycle] = useState(false);
+  const terminalRef = useRef(null);
   
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -229,8 +231,25 @@ export default function TerminalPage() {
     });
   };
 
-  const handleTerminalMessage = (message) => {
+  const handleAttachFiles = async () => {
+    // Process selected files from the file list
+    if (selectedFiles.length === 0) return;
+    
+    // Get reference to terminal component to access its attached files state
+    if (terminalRef.current) {
+      terminalRef.current.attachFiles(selectedFiles);
+    }
+    
+    // Clear selection after attaching
+    setSelectedFiles([]);
+  };
+
+  const handleTerminalMessage = (message, attachedFiles) => {
     setCommandHistory(prev => [...prev.slice(-4), message]);
+    // TODO: Process attached files with message
+    if (attachedFiles && attachedFiles.length > 0) {
+      console.log("Message with attached files:", { message, attachedFiles });
+    }
   };
 
   return (
@@ -295,7 +314,14 @@ export default function TerminalPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
         {/* Terminal Component - Takes 2 columns */}
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <Terminal onMessage={handleTerminalMessage} className="flex-1" />
+          <Terminal 
+            ref={terminalRef}
+            onMessage={handleTerminalMessage} 
+            selectedFiles={selectedFiles}
+            courseFiles={courseFiles}
+            onFileSelect={handleFileSelect}
+            className="flex-1" 
+          />
           
           {/* Tips Component - Below terminal, aligned with its bottom */}
           <motion.div
@@ -375,7 +401,16 @@ export default function TerminalPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {selectedFiles.length > 0 && (
-                    <span className="text-xs text-gray-500">{selectedFiles.length} selected</span>
+                    <>
+                      <span className="text-xs text-gray-500">{selectedFiles.length} selected</span>
+                      <button
+                        onClick={handleAttachFiles}
+                        className="px-2 py-1 text-xs font-medium rounded transition-colors text-white hover:shadow-md"
+                        style={{ backgroundColor: customColors.primary }}
+                      >
+                        Attach
+                      </button>
+                    </>
                   )}
                   <button
                     onClick={loadCourseFiles}
@@ -408,51 +443,69 @@ export default function TerminalPage() {
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" style={{ color: customColors.primary }} />
                 </div>
-              ) : courseFiles.length > 0 ? (
-                <div className="space-y-2 overflow-y-auto flex-1">
-                  {courseFiles.map((file) => {
-                    const isSelected = selectedFiles.some((f) => f.id === file.id);
-                    return (
-                      <div
-                        key={file.id}
-                        onClick={() => handleFileSelect(file)}
-                        className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer ${
-                          isSelected 
-                            ? 'border-2 shadow-sm' 
-                            : 'border border-gray-200 hover:bg-gray-50'
-                        }`}
-                        style={{
-                          borderColor: isSelected ? customColors.primary : undefined,
-                          backgroundColor: isSelected ? `${customColors.primary}08` : undefined
-                        }}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`p-1.5 rounded-lg ${
-                            isSelected ? 'bg-opacity-20' : 'bg-gray-100'
-                          }`}
-                          style={{
-                            backgroundColor: isSelected ? `${customColors.primary}20` : undefined
-                          }}
-                          >
-                            {getFileIcon(file.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                            <p className="text-xs text-gray-500">{formatUploadDate(file.uploadedAt)}</p>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: customColors.primary }} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
               ) : (
-                <div className="text-center py-8">
-                  <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">No files uploaded yet</p>
-                </div>
+                <>
+                  {/* Upload button - redirects to Google Drive picker */}
+                  <div className="mb-3">
+                    <button
+                      onClick={() => {
+                        // Redirect to course page where they can import files from Google Drive
+                        window.location.href = '/dashboard/course';
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors"
+                    >
+                      <Upload className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-700">Import Files from Google Drive</span>
+                    </button>
+                  </div>
+
+                  {courseFiles.length > 0 ? (
+                    <div className="space-y-2 overflow-y-auto flex-1">
+                      {courseFiles.map((file) => {
+                        const isSelected = selectedFiles.some((f) => f.id === file.id);
+                        return (
+                          <div
+                            key={file.id}
+                            onClick={() => handleFileSelect(file)}
+                            className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer ${
+                              isSelected 
+                                ? 'border-2 shadow-sm' 
+                                : 'border border-gray-200 hover:bg-gray-50'
+                            }`}
+                            style={{
+                              borderColor: isSelected ? customColors.primary : undefined,
+                              backgroundColor: isSelected ? `${customColors.primary}08` : undefined
+                            }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`p-1.5 rounded-lg ${
+                                isSelected ? 'bg-opacity-20' : 'bg-gray-100'
+                              }`}
+                              style={{
+                                backgroundColor: isSelected ? `${customColors.primary}20` : undefined
+                              }}
+                              >
+                                {getFileIcon(file.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                                <p className="text-xs text-gray-500">{formatUploadDate(file.uploadedAt)}</p>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: customColors.primary }} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500">No files uploaded yet</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>

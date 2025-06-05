@@ -167,22 +167,50 @@ class GoogleDriveService {
   }
 
   /**
-   * Download file content
+   * Download file content (handles both binary files and Google Docs)
    */
   async downloadFile(tokens, fileId) {
     try {
       this.oauth2Client.setCredentials(tokens);
       const drive = google.drive({ version: "v3", auth: this.oauth2Client });
 
-      const response = await drive.files.get(
-        { fileId, alt: "media" },
-        { responseType: "stream" }
-      );
+      // First, get file metadata to check the mime type
+      const fileMetadata = await drive.files.get({
+        fileId,
+        fields: "mimeType, name"
+      });
 
-      return response.data;
+      const mimeType = fileMetadata.data.mimeType;
+
+      // Check if it's a Google Docs file that needs export
+      const googleDocsTypes = {
+        'application/vnd.google-apps.document': 'application/pdf',
+        'application/vnd.google-apps.spreadsheet': 'application/pdf',
+        'application/vnd.google-apps.presentation': 'application/pdf',
+        'application/vnd.google-apps.drawing': 'application/pdf'
+      };
+
+      if (googleDocsTypes[mimeType]) {
+        // Export Google Docs files as PDF
+        const response = await drive.files.export(
+          { 
+            fileId, 
+            mimeType: googleDocsTypes[mimeType] 
+          },
+          { responseType: "stream" }
+        );
+        return response.data;
+      } else {
+        // Download binary files normally
+        const response = await drive.files.get(
+          { fileId, alt: "media" },
+          { responseType: "stream" }
+        );
+        return response.data;
+      }
     } catch (error) {
       console.error("Error downloading file:", error);
-      throw new Error("Failed to download file");
+      throw new Error("Failed to download file: " + error.message);
     }
   }
 
