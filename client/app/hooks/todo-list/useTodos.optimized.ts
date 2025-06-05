@@ -237,6 +237,8 @@ export const useTodos = ({
             )
           );
           showToast?.("Task created successfully", "success");
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           // Remove temp todo on error
           setTodos((prev) => prev.filter((todo) => todo.todoId !== tempId));
@@ -277,6 +279,8 @@ export const useTodos = ({
             )
           );
           showToast?.("Task updated successfully", "success");
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           // Revert on error
           if (originalTodo) {
@@ -330,6 +334,8 @@ export const useTodos = ({
               todo.todoId === todoId ? response.data : todo
             )
           );
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           // Revert on error
           setTodos((prev) =>
@@ -367,6 +373,8 @@ export const useTodos = ({
         const response = await deleteTodoApi(todoId, token);
         if (response.success) {
           showToast?.("Task deleted successfully", "success");
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           // Revert on error
           if (todoToDelete) {

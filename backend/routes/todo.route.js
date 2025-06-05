@@ -3,6 +3,13 @@ const { requireAuth } = require("@clerk/express");
 const router = express.Router();
 const todoController = require("../controllers/todo.controller.optimized");
 
+// Get todo stats for all user courses
+router.get(
+  "/stats/all",
+  requireAuth(),
+  todoController.getTodoStatsByUser
+);
+
 // Get all todos for a course
 router.get(
   "/:courseInstanceId",

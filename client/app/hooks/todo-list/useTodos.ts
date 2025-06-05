@@ -132,6 +132,8 @@ export const useTodos = ({
         if (response.success && response.data) {
           setTodos((prev) => [response.data, ...prev]);
           showToast?.("Task created successfully", "success");
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           throw new Error(response.error || "Failed to create task");
         }
@@ -160,6 +162,8 @@ export const useTodos = ({
             )
           );
           showToast?.("Task updated successfully", "success");
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           throw new Error(response.error || "Failed to update task");
         }
@@ -196,6 +200,8 @@ export const useTodos = ({
               todo.todoId === todoId ? response.data : todo
             )
           );
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           // Revert on error
           setTodos((prev) =>
@@ -232,6 +238,8 @@ export const useTodos = ({
         const response = await deleteTodoApi(todoId, token);
         if (response.success) {
           showToast?.("Task deleted successfully", "success");
+          // Dispatch event to update course list
+          window.dispatchEvent(new Event('todoUpdated'));
         } else {
           // Revert on error
           if (todoToDelete) {

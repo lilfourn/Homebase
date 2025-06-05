@@ -32,6 +32,94 @@ function clearCache(userId, courseInstanceId) {
   cache.delete(key);
 }
 
+// Get todo stats for all user courses
+exports.getTodoStatsByUser = async (req, res) => {
+  try {
+    const auth = getAuth(req);
+
+    if (!auth.userId) {
+      return res.status(401).json({ 
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication required"
+      });
+    }
+
+    // Get all courses for the user
+    const courses = await Course.find({ userId: auth.userId }).select('courseInstanceId');
+    
+    if (!courses || courses.length === 0) {
+      return res.json({ 
+        success: true, 
+        stats: {}
+      });
+    }
+
+    // Get todo stats for each course
+    const courseIds = courses.map(c => c.courseInstanceId);
+    
+    // Aggregate todos by course
+    const todoStats = await Todo.aggregate([
+      {
+        $match: {
+          userId: auth.userId,
+          courseInstanceId: { $in: courseIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$courseInstanceId",
+          totalTasks: { $sum: 1 },
+          completedTasks: {
+            $sum: {
+              $cond: [{ $eq: ["$completed", true] }, 1, 0]
+            }
+          },
+          incompleteTasks: {
+            $sum: {
+              $cond: [{ $eq: ["$completed", false] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    // Convert to object keyed by courseInstanceId
+    const stats = {};
+    todoStats.forEach(stat => {
+      stats[stat._id] = {
+        total: stat.totalTasks,
+        completed: stat.completedTasks,
+        incomplete: stat.incompleteTasks,
+        progress: stat.totalTasks > 0 ? Math.round((stat.completedTasks / stat.totalTasks) * 100) : 0
+      };
+    });
+
+    // Add courses with no todos
+    courseIds.forEach(courseId => {
+      if (!stats[courseId]) {
+        stats[courseId] = {
+          total: 0,
+          completed: 0,
+          incomplete: 0,
+          progress: 0
+        };
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      stats
+    });
+  } catch (error) {
+    console.error("Error getting todo stats:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to get todo stats" 
+    });
+  }
+};
+
 // Get all todos for a course
 exports.getTodosByCourse = async (req, res) => {
   try {

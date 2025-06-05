@@ -25,6 +25,33 @@ axiosInstance.interceptors.response.use(
   }
 );
 
+// Get todo stats for all user courses
+export const getTodoStatsByUser = async (authToken) => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/todos/stats/all`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    
+    if (!response.data) {
+      return { success: false, error: "No data received from server", stats: {} };
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching todo stats:", error);
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message || "Failed to fetch todo stats",
+      stats: {}
+    };
+  }
+};
+
 // Get all todos for a course
 export const getTodosByCourse = async (courseInstanceId, authToken) => {
   try {

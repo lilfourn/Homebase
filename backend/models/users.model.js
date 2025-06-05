@@ -125,24 +125,87 @@ const UserSchema = mongoose.Schema(
       },
     },
 
-    // Store uploaded files from Google Drive
+    // Store uploaded files from Google Drive and local uploads
     googleDriveFiles: [
       {
         fileId: {
           type: String,
-          required: true,
+          required: function() {
+            return this.source === 'google_drive';
+          },
         },
         fileName: {
           type: String,
           required: true,
+          trim: true,
+          maxlength: 255,
         },
         mimeType: {
           type: String,
           required: true,
+          validate: {
+            validator: function(v) {
+              // Allowed mime types for security
+              const allowedTypes = [
+                // Documents
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                // Text
+                'text/plain',
+                'text/csv',
+                'text/markdown',
+                // Code
+                'text/javascript',
+                'application/javascript',
+                'text/typescript',
+                'text/x-python',
+                'text/x-java-source',
+                'text/html',
+                'text/css',
+                'application/json',
+                // Images
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/webp',
+                'image/svg+xml',
+                // Google Drive folders
+                'application/vnd.google-apps.folder',
+                'application/vnd.google-apps.document',
+                'application/vnd.google-apps.spreadsheet',
+                'application/vnd.google-apps.presentation'
+              ];
+              return allowedTypes.includes(v) || v.startsWith('text/') || v.startsWith('application/vnd.google-apps.');
+            },
+            message: 'File type not allowed for security reasons'
+          }
         },
         size: {
           type: Number,
           default: 0,
+          max: 52428800, // 50MB max file size
+        },
+        source: {
+          type: String,
+          enum: ['google_drive', 'local_upload'],
+          default: 'google_drive',
+          required: true,
+        },
+        // For local uploads, store processed content
+        processedContent: {
+          type: String,
+          select: false, // Don't include by default due to size
+          maxlength: 10485760, // 10MB max content size
+        },
+        // For local uploads, store SHA-256 hash for integrity
+        contentHash: {
+          type: String,
+          select: false,
         },
         webViewLink: {
           type: String,
@@ -164,6 +227,19 @@ const UserSchema = mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Course",
           default: null,
+        },
+        // Security metadata
+        isQuarantined: {
+          type: Boolean,
+          default: false,
+        },
+        scanStatus: {
+          type: String,
+          enum: ['pending', 'clean', 'infected', 'error'],
+          default: 'pending',
+        },
+        lastScannedAt: {
+          type: Date,
         },
       },
     ],

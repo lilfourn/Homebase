@@ -279,7 +279,9 @@ class GoogleDriveService {
       return credentials;
     } catch (error) {
       console.error("Error refreshing access token:", error);
-      throw new Error("Failed to refresh access token");
+      // Pass through the original error to preserve error details
+      // This allows the caller to check for specific error types like invalid_grant
+      throw error;
     }
   }
 }
