@@ -10,11 +10,12 @@ export default function TerminalPage() {
   const [commandHistory, setCommandHistory] = useState([]);
   const [temperature, setTemperature] = useState(0.7);
   const [responseStyle, setResponseStyle] = useState("normal");
-  const [selectedFiles, setSelectedFiles] = useState([]);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const [hasCompletedCycle, setHasCompletedCycle] = useState(false);
+  const [fileLibraryKey, setFileLibraryKey] = useState(0); // Force refresh key
   const terminalRef = useRef(null);
+  const fileLibraryRef = useRef(null);
 
   const tips = [
     {
@@ -102,17 +103,18 @@ export default function TerminalPage() {
     return () => clearInterval(interval);
   }, [tips.length, hasCompletedCycle]);
 
+
+
+  // Handler for attaching files from the file library
   const handleAttachFiles = async (files) => {
-    // Process selected files from the file library
     if (!files || files.length === 0) return;
 
-    // Get reference to terminal component to access its attached files state
+    // Process files through terminal component
     if (terminalRef.current) {
       const result = await terminalRef.current.attachFiles(files);
 
       // Check if there was an authentication error
       if (result && result.authError) {
-        // Create a notification or modal to redirect the user
         if (
           window.confirm(
             "Google Drive authentication has expired. Would you like to reconnect your Google Drive account in Settings?"
@@ -122,14 +124,21 @@ export default function TerminalPage() {
           return;
         }
       }
-
-      // Get updated attached files from terminal
-      const updatedAttachedFiles = terminalRef.current.getAttachedFiles();
-      setAttachedFiles(updatedAttachedFiles);
+      
+      // The attached files will be updated through the onAttachedFilesChange callback
+      // No need to manually update here
     }
+  };
 
-    // Update local state
-    setSelectedFiles(files);
+  // Handler for when files are removed from terminal
+  const handleFilesDetached = () => {
+    // Force refresh the file library by incrementing the key
+    setFileLibraryKey(prev => prev + 1);
+  };
+
+  // Handler for refreshing file library
+  const refreshFileLibrary = () => {
+    setFileLibraryKey(prev => prev + 1);
   };
 
   const handleTerminalMessage = (message, attachedFiles) => {
@@ -212,6 +221,9 @@ export default function TerminalPage() {
             <Terminal
               ref={terminalRef}
               onMessage={handleTerminalMessage}
+              onFileSelect={handleFilesDetached}
+              attachedFiles={attachedFiles}
+              onAttachedFilesChange={setAttachedFiles}
               className="flex-1"
             />
 
@@ -282,9 +294,11 @@ export default function TerminalPage() {
               className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col min-h-0"
             >
               <TerminalFileLibrary
+                key={fileLibraryKey}
+                ref={fileLibraryRef}
                 onFilesSelect={handleAttachFiles}
-                selectedFiles={selectedFiles}
                 attachedFiles={attachedFiles}
+                onRefresh={refreshFileLibrary}
               />
             </motion.div>
 

@@ -22,6 +22,7 @@ export default function AttachedFilesBar({
   selectedGoogleDriveFiles,
   courseFiles,
   onFileSelect,
+  onFileRemove,
   customColors,
   className,
   maxFiles = 5
@@ -186,7 +187,12 @@ export default function AttachedFilesBar({
 
   // Remove file
   const handleRemoveFile = (file) => {
-    setAttachedFiles(prev => prev.filter(f => f.id !== file.id));
+    const updatedFiles = attachedFiles.filter(f => f.id !== file.id);
+    setAttachedFiles(updatedFiles);
+    // Notify parent about file removal
+    if (onFileRemove) {
+      onFileRemove(file);
+    }
   };
 
   // Handle file preview
@@ -244,7 +250,13 @@ export default function AttachedFilesBar({
             </div>
             {attachedFiles.length > 0 && (
               <button
-                onClick={() => setAttachedFiles([])}
+                onClick={() => {
+                  setAttachedFiles([]);
+                  // Notify parent about clearing all files
+                  if (onFileRemove) {
+                    onFileRemove(null); // null indicates all files cleared
+                  }
+                }}
                 className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
               >
                 <X className="w-3 h-3" />

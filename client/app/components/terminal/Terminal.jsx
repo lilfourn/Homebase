@@ -26,6 +26,8 @@ const Terminal = forwardRef(
       selectedFiles = [],
       courseFiles = [],
       onFileSelect,
+      attachedFiles = [],
+      onAttachedFilesChange,
     },
     ref
   ) => {
@@ -41,10 +43,19 @@ const Terminal = forwardRef(
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
-    const [attachedFiles, setAttachedFiles] = useState([]);
     const messagesEndRef = useRef(null);
-    const terminalRef = useRef(null);
     const { getToken } = useAuth();
+    
+    // Update attached files through parent callback
+    const setAttachedFiles = (newFiles) => {
+      if (onAttachedFilesChange) {
+        if (typeof newFiles === 'function') {
+          onAttachedFilesChange((prev) => newFiles(prev));
+        } else {
+          onAttachedFilesChange(newFiles);
+        }
+      }
+    };
 
     // Get custom colors from CSS variables - default values for SSR
     const [customColors, setCustomColors] = useState({
@@ -86,13 +97,16 @@ const Terminal = forwardRef(
             processing: true, // Will be processed when added
           }));
 
-          // Add to attached files
-          setAttachedFiles((prev) => [...prev, ...newFiles]);
+          // Add files with processing state
+          const initialFiles = [...attachedFiles, ...newFiles];
+          setAttachedFiles(initialFiles);
 
           // Process each file
           const token = await getToken();
           let googleDriveAuthError = false;
+          const results = [];
 
+          // Process all files and collect results
           for (const file of newFiles) {
             try {
               let result;
@@ -139,28 +153,13 @@ const Terminal = forwardRef(
                 );
               }
 
-              // Update file with processed data
-              setAttachedFiles((prev) =>
-                prev.map((f) =>
-                  f.id === file.id
-                    ? {
-                        ...f,
-                        ...result,
-                        processing: false,
-                        processed: true,
-                        error: null,
-                      }
-                    : f
-                )
-              );
+              results.push({
+                fileId: file.id,
+                success: true,
+                data: result
+              });
             } catch (error) {
               console.error("Error processing file:", error);
-              console.error("Error details:", {
-                message: error.message,
-                error: error.error,
-                success: error.success,
-                fullError: JSON.stringify(error)
-              });
 
               // Check if this is a Google Drive authentication error
               if (error.isGoogleDriveAuthError) {
@@ -179,21 +178,39 @@ const Terminal = forwardRef(
                 ]);
               }
 
-              // Update file with error
-              setAttachedFiles((prev) =>
-                prev.map((f) =>
-                  f.id === file.id
-                    ? {
-                        ...f,
-                        processing: false,
-                        processed: false,
-                        error: error.error || error.message || "Failed to process file",
-                      }
-                    : f
-                )
-              );
+              results.push({
+                fileId: file.id,
+                success: false,
+                error: error.error || error.message || "Failed to process file"
+              });
             }
           }
+
+          // Batch update all files at once
+          const finalFiles = initialFiles.map(f => {
+            const result = results.find(r => r.fileId === f.id);
+            if (!result) return f; // Not a file we just processed
+            
+            if (result.success) {
+              return {
+                ...f,
+                ...result.data,
+                processing: false,
+                processed: true,
+                error: null,
+              };
+            } else {
+              return {
+                ...f,
+                processing: false,
+                processed: false,
+                error: result.error,
+              };
+            }
+          });
+
+          // Update all files at once
+          setAttachedFiles(finalFiles);
 
           // Return updated array
           return googleDriveAuthError ? { authError: true } : attachedFiles;
@@ -464,6 +481,12 @@ const Terminal = forwardRef(
             selectedGoogleDriveFiles={selectedFiles}
             courseFiles={courseFiles}
             onFileSelect={onFileSelect}
+            onFileRemove={() => {
+              // Notify parent about file removal
+              if (onFileSelect) {
+                onFileSelect();
+              }
+            }}
             customColors={customColors}
             className="px-4 pt-3"
           />

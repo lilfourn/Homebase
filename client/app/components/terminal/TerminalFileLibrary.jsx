@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { 
   FolderOpen, 
   Upload, 
@@ -29,7 +29,7 @@ import { fetchUserByClerkId } from "@/app/api/users.api";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTerminalGooglePicker } from "@/app/hooks/terminal/useTerminalGooglePicker";
 
-export default function TerminalFileLibrary({ onFilesSelect, selectedFiles = [], attachedFiles = [] }) {
+const TerminalFileLibrary = React.forwardRef(({ onFilesSelect, attachedFiles = [], onRefresh }, ref) => {
   const [allFiles, setAllFiles] = useState([]);
   const [filteredFiles, setFilteredFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -202,11 +202,10 @@ export default function TerminalFileLibrary({ onFilesSelect, selectedFiles = [],
     checkGoogleDriveConnection();
   }, [user?.id, loadAllFiles]);
 
-  // Update selected files from parent
-  useEffect(() => {
-    const newSelectedIds = new Set(selectedFiles.map(f => f.id));
-    setSelectedFileIds(newSelectedIds);
-  }, [selectedFiles]);
+  // Expose methods to parent
+  React.useImperativeHandle(ref, () => ({
+    refresh: loadAllFiles
+  }), [loadAllFiles]);
 
   // Filter files based on search
   useEffect(() => {
@@ -555,7 +554,16 @@ export default function TerminalFileLibrary({ onFilesSelect, selectedFiles = [],
             <AnimatePresence>
               {filteredFiles.map((file) => {
                 const isSelected = selectedFileIds.has(file.id);
-                const isAttached = attachedFiles.some(f => f.id === file.id || f.fileId === file.id);
+                // Check if file is attached by comparing both id and fileId fields
+                const isAttached = attachedFiles.some(f => {
+                  // For local files, compare MongoDB IDs
+                  if (f.id === file.id) return true;
+                  // For Google Drive files, also check fileId
+                  if (f.fileId && (f.fileId === file.id || f.fileId === file.fileId)) return true;
+                  // Also check the reverse - if the file library item has a fileId
+                  if (file.fileId && (f.id === file.fileId || f.fileId === file.fileId)) return true;
+                  return false;
+                });
                 
                 return (
                   <motion.div
@@ -725,4 +733,8 @@ export default function TerminalFileLibrary({ onFilesSelect, selectedFiles = [],
       </div>
     </div>
   );
-}
+});
+
+TerminalFileLibrary.displayName = 'TerminalFileLibrary';
+
+export default TerminalFileLibrary;
