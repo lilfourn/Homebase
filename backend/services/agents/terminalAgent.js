@@ -33,8 +33,8 @@ When files are attached, analyze them carefully and provide insights based on th
       enableMemory: true, // Enable memory to maintain conversation context
       enableMemoryOptimization: true, // Enable memory optimization for better performance
       memoryConfig: {
-        maxTokens: 50000 // Allow more tokens for file context
-      }
+        maxTokens: 50000, // Allow more tokens for file context
+      },
     });
 
     // Append terminal-specific guidelines to the style-based prompt
@@ -42,52 +42,16 @@ When files are attached, analyze them carefully and provide insights based on th
 
     // Add terminal-specific tools
     this.tools = [...this.tools, ...this.createTerminalTools()];
-    
+
     // Recreate agent with new tools and updated system prompt
     this.agent = this.createAgent();
   }
 
   /**
-   * Create terminal-specific tools
+   * Create terminal-specific tools - (No tools needed for now)
    */
   createTerminalTools() {
-    const tools = [];
-
-    // File Context Analysis Tool
-    const analyzeFileContextTool = tool(
-      async ({ content, analysisType }) => {
-        try {
-          // Perform different types of analysis based on request
-          switch (analysisType) {
-            case "summary":
-              return this.generateSummary(content);
-            case "key_points":
-              return this.extractKeyPoints(content);
-            case "questions":
-              return this.generateQuestions(content);
-            case "outline":
-              return this.createOutline(content);
-            default:
-              return this.generateSummary(content);
-          }
-        } catch (error) {
-          console.error("[TerminalAgent] File analysis error:", error);
-          return `Error analyzing file: ${error.message}`;
-        }
-      },
-      {
-        name: "analyzeFileContext",
-        description: "Analyze file content to extract summaries, key points, questions, or outlines",
-        schema: z.object({
-          content: z.string().describe("The file content to analyze"),
-          analysisType: z.enum(["summary", "key_points", "questions", "outline"])
-            .describe("Type of analysis to perform"),
-        }),
-      }
-    );
-
-    tools.push(analyzeFileContextTool);
-    return tools;
+    return [];
   }
 
   /**
@@ -95,48 +59,38 @@ When files are attached, analyze them carefully and provide insights based on th
    */
   async processMessage(message, attachedFiles = [], options = {}) {
     try {
-      // Validate input
-      if (!message || typeof message !== "string") {
-        throw new Error("Invalid message input");
-      }
-
-      // Sanitize message to prevent prompt injection
+      const { threadId, imageData } = options;
       const sanitizedMessage = this.sanitizeInput(message);
 
-      // Build context from attached files
-      let fileContext = "";
-      if (attachedFiles && attachedFiles.length > 0) {
-        console.log(`[TerminalAgent] Processing ${attachedFiles.length} attached files`);
-        
-        // Debug: Log file structure
-        if (this.config.debug || attachedFiles.length > 0) {
-          console.log("[TerminalAgent] File structures:", attachedFiles.map(f => ({
-            fileName: f.fileName,
-            hasContent: !!f.content,
-            contentLength: f.content ? f.content.length : 0,
-            mimeType: f.mimeType
-          })));
-        }
-        
-        fileContext = this.buildFileContext(attachedFiles);
-        
-        if (fileContext && fileContext.length > 0) {
-          console.log(`[TerminalAgent] Built file context with ${fileContext.length} characters`);
+      let fullPrompt;
+      const userContent = [{ type: "text", text: sanitizedMessage }];
+
+      // If image data is provided, add it to the content
+      if (imageData && imageData.base64) {
+        console.log(
+          `[TerminalAgent] Adding image data to prompt (${imageData.mimeType})`
+        );
+        userContent.push({
+          type: "image_url",
+          image_url: {
+            url: `data:${imageData.mimeType};base64,${imageData.base64}`,
+          },
+        });
+      } else if (attachedFiles.length > 0) {
+        // Fallback for text-based files
+        const fileContext = this.buildFileContext(attachedFiles);
+        if (fileContext) {
+          const contextIntro = `\n\n--- CONTEXT FROM ATTACHED FILES ---\n`;
+          userContent.push({ type: "text", text: contextIntro + fileContext });
         }
       }
 
-      // Construct the full prompt
-      const fullPrompt = this.constructPrompt(sanitizedMessage, fileContext);
-      
-      // Debug: Log the prompt being sent
-      if (fileContext) {
-        console.log(`[TerminalAgent] Sending prompt with file context. Message length: ${sanitizedMessage.length}, File context length: ${fileContext.length}`);
-        // Log first 200 chars of file context for debugging
-        console.log(`[TerminalAgent] File context preview: ${fileContext.substring(0, 200)}...`);
-      }
+      fullPrompt = {
+        messages: [{ role: "user", content: userContent }],
+      };
 
-      // Invoke the agent with thread context
-      const response = await this.invoke(fullPrompt, { threadId: options.threadId });
+      // Invoke the agent
+      const response = await this.invoke(fullPrompt, { threadId });
 
       return {
         success: true,
@@ -145,15 +99,16 @@ When files are attached, analyze them carefully and provide insights based on th
           model: this.config.modelName,
           filesProcessed: attachedFiles.length,
           timestamp: new Date().toISOString(),
-          threadId: options.threadId
-        }
+          threadId: options.threadId,
+        },
       };
     } catch (error) {
       console.error("[TerminalAgent] Error processing message:", error);
       return {
         success: false,
         error: error.message || "Failed to process message",
-        content: "I apologize, but I encountered an error processing your request. Please try again."
+        content:
+          "I apologize, but I encountered an error processing your request. Please try again.",
       };
     }
   }
@@ -197,22 +152,22 @@ When files are attached, analyze them carefully and provide insights based on th
       // Fallback to character-based limits
       return this.buildFileContextLegacy(attachedFiles);
     }
-    
+
     // Calculate available tokens for file context
     const tokenBudget = this.tokenOptimizer.calculateTokenBudget();
     const maxFileTokens = Math.floor(tokenBudget.currentInput * 0.7); // Use 70% of input budget for files
-    
+
     let context = "\n\n--- ATTACHED FILES ---\n";
     let totalTokens = this.tokenOptimizer.estimateTokens(context);
-    
+
     // Sort files by importance (could be enhanced with relevance scoring)
     // Filter files that have content (processed files from controller won't have 'processed' flag)
-    const sortedFiles = attachedFiles.filter(f => f.content);
+    const sortedFiles = attachedFiles.filter((f) => f.content);
 
     for (const file of sortedFiles) {
       const fileHeader = `\n\nFile: ${file.fileName} (${file.mimeType})\n`;
       const headerTokens = this.tokenOptimizer.estimateTokens(fileHeader);
-      
+
       // Check if we have room for at least the header
       if (totalTokens + headerTokens > maxFileTokens) {
         context += "\n[Additional files truncated due to token limits]";
@@ -221,26 +176,29 @@ When files are attached, analyze them carefully and provide insights based on th
 
       // Calculate remaining tokens for content
       const remainingTokens = maxFileTokens - totalTokens - headerTokens;
-      
+
       // Truncate file content to fit token limit
       let fileContent = this.tokenOptimizer.truncateToTokenLimit(
-        file.content, 
+        file.content,
         remainingTokens,
         true // Add ellipsis if truncated
       );
 
       context += fileHeader + fileContent;
-      totalTokens += headerTokens + this.tokenOptimizer.estimateTokens(fileContent);
+      totalTokens +=
+        headerTokens + this.tokenOptimizer.estimateTokens(fileContent);
     }
-    
+
     // Log token usage in debug mode
     if (this.config.debug) {
-      console.log(`[TerminalAgent] File context: ~${totalTokens} tokens (budget: ${maxFileTokens})`);
+      console.log(
+        `[TerminalAgent] File context: ~${totalTokens} tokens (budget: ${maxFileTokens})`
+      );
     }
 
     return context;
   }
-  
+
   /**
    * Legacy character-based file context building
    */
@@ -254,7 +212,8 @@ When files are attached, analyze them carefully and provide insights based on th
       if (!file.content) continue;
 
       const fileHeader = `\n\nFile: ${file.fileName} (${file.mimeType})\n`;
-      const remainingSpace = MAX_CONTEXT_LENGTH - totalLength - fileHeader.length;
+      const remainingSpace =
+        MAX_CONTEXT_LENGTH - totalLength - fileHeader.length;
 
       if (remainingSpace <= 0) {
         context += "\n[Additional files truncated due to length limits]";
@@ -263,7 +222,8 @@ When files are attached, analyze them carefully and provide insights based on th
 
       let fileContent = file.content;
       if (fileContent.length > remainingSpace) {
-        fileContent = fileContent.substring(0, remainingSpace) + "\n[Content truncated]";
+        fileContent =
+          fileContent.substring(0, remainingSpace) + "\n[Content truncated]";
       }
 
       context += fileHeader + fileContent;
@@ -278,30 +238,9 @@ When files are attached, analyze them carefully and provide insights based on th
    */
   constructPrompt(message, fileContext) {
     if (fileContext) {
-      return `User Question: ${message}\n${fileContext}\n\nPlease answer the user's question based on the attached files and any additional research needed.`;
+      return `User Question: ${message}`;
     }
     return message;
-  }
-
-  /**
-   * Helper methods for file analysis
-   */
-  generateSummary(content) {
-    const words = content.split(/\s+/).length;
-    const targetLength = Math.min(300, Math.floor(words * 0.2));
-    return `Summary (targeting ~${targetLength} words): Please provide a concise summary of the main points.`;
-  }
-
-  extractKeyPoints() {
-    return "Key Points: Please identify and list the 5-7 most important points from this content.";
-  }
-
-  generateQuestions() {
-    return "Study Questions: Please generate 5-10 thoughtful questions that test understanding of this material.";
-  }
-
-  createOutline() {
-    return "Outline: Please create a hierarchical outline of the main topics and subtopics in this content.";
   }
 }
 
@@ -312,5 +251,5 @@ function createTerminalAgent(config = {}) {
 
 module.exports = {
   TerminalAgent,
-  createTerminalAgent
+  createTerminalAgent,
 };

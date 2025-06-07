@@ -16,44 +16,52 @@ const api = axios.create({
  * @param {string} token - Auth token
  * @returns {Promise<Object>} AI response with threadId
  */
-export const processTerminalMessage = async (message, attachedFiles = [], options = {}, token) => {
+export const processTerminalMessage = async (
+  message,
+  attachedFiles = [],
+  options = {},
+  token
+) => {
   try {
     const config = {
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
     };
 
     const payload = {
       message,
-      attachedFiles: attachedFiles.map(file => ({
+      attachedFiles: attachedFiles.map((file) => ({
         id: file.id,
         fileName: file.fileName,
         mimeType: file.mimeType,
         size: file.size,
         content: file.content || file.processedContent,
         processed: file.processed,
-        source: file.source
+        source: file.source,
       })),
       temperature: options.temperature,
       model: options.model,
       responseStyle: options.responseStyle,
-      threadId: options.threadId
+      threadId: options.threadId,
+      imageData: options.imageData,
     };
 
-    const response = await api.post('/process', payload, config);
+    const response = await api.post("/process", payload, config);
     return response.data;
   } catch (error) {
     console.error("Error processing terminal message:", error);
-    
+
     // Handle rate limiting
     if (error.response?.status === 429) {
       const retryAfter = error.response.data.retryAfter || 3600000;
       const retryDate = new Date(Date.now() + retryAfter);
-      throw new Error(`Rate limit exceeded. Please try again at ${retryDate.toLocaleTimeString()}`);
+      throw new Error(
+        `Rate limit exceeded. Please try again at ${retryDate.toLocaleTimeString()}`
+      );
     }
-    
+
     throw error.response?.data || error;
   }
 };
@@ -71,7 +79,7 @@ export const getTerminalUsage = async (token) => {
       },
     };
 
-    const response = await api.get('/usage', config);
+    const response = await api.get("/usage", config);
     return response.data;
   } catch (error) {
     console.error("Error getting terminal usage:", error);

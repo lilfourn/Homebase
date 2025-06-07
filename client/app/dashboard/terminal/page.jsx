@@ -2,8 +2,9 @@
 
 import Terminal from "@/app/components/terminal/Terminal";
 import TerminalFileLibrary from "@/app/components/terminal/TerminalFileLibrary";
+import { useSchoolUpdate } from "@/app/context/SchoolUpdateContext";
 import { motion } from "framer-motion";
-import { Bot, CheckCircle2, Flame, Settings, Trophy, Zap } from "lucide-react";
+import { Bot, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -12,80 +13,11 @@ export default function TerminalPage() {
   const [temperature, setTemperature] = useState(0.7);
   const [responseStyle, setResponseStyle] = useState("normal");
   const [attachedFiles, setAttachedFiles] = useState([]);
-  const [currentTipIndex, setCurrentTipIndex] = useState(0);
-  const [hasCompletedCycle, setHasCompletedCycle] = useState(false);
   const [fileLibraryKey, setFileLibraryKey] = useState(0); // Force refresh key
   const [threadId, setThreadId] = useState(null);
   const terminalRef = useRef(null);
   const fileLibraryRef = useRef(null);
-
-  const tips = [
-    {
-      title: "Natural Language",
-      content: "Just describe what you want in plain English",
-    },
-    {
-      title: "File Context",
-      content: "Select files to provide project context",
-    },
-    {
-      title: "Creativity",
-      content: "Lower for facts, higher for creative solutions",
-    },
-    {
-      title: "Response Styles",
-      content: "Try 'Tutor' for learning or 'Engineer' for code",
-    },
-    {
-      title: "Multi-line",
-      content: "Shift+Enter for new lines",
-    },
-    {
-      title: "Fresh Start",
-      content: "Hit 'clear' to begin a new conversation",
-    },
-  ];
-
-  // Get custom colors from CSS variables - default values for SSR
-  const [customColors, setCustomColors] = useState({
-    primary: "#6366f1",
-    primaryLight: "#818cf8",
-    primaryDark: "#4c1d95",
-    textColor: "#ffffff",
-  });
-
-  // Update colors on client side only
-  useEffect(() => {
-    const computedStyle = getComputedStyle(document.documentElement);
-    const primaryColor =
-      computedStyle.getPropertyValue("--custom-primary-color")?.trim() ||
-      "#6366f1";
-
-    // Calculate if text should be white or black based on background
-    const getTextColor = (hexColor) => {
-      const r = parseInt(hexColor.substring(1, 3), 16);
-      const g = parseInt(hexColor.substring(3, 5), 16);
-      const b = parseInt(hexColor.substring(5, 7), 16);
-      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      return brightness > 128 ? "#000000" : "#ffffff";
-    };
-
-    // Generate lighter/darker shades
-    const adjustColor = (color, amount) => {
-      const num = parseInt(color.replace("#", ""), 16);
-      const r = Math.min(255, Math.max(0, (num >> 16) + amount));
-      const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + amount));
-      const b = Math.min(255, Math.max(0, (num & 0x0000ff) + amount));
-      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-    };
-
-    setCustomColors({
-      primary: primaryColor,
-      primaryLight: adjustColor(primaryColor, 40),
-      primaryDark: adjustColor(primaryColor, -40),
-      textColor: getTextColor(primaryColor),
-    });
-  }, []);
+  const { updateCount } = useSchoolUpdate(); // To re-trigger effects on theme change
 
   useEffect(() => {
     // Initialize threadId on component mount
@@ -93,24 +25,6 @@ export default function TerminalPage() {
       setThreadId(uuidv4());
     }
   }, []);
-
-  // Auto-cycle through tips - stops after one complete cycle
-  useEffect(() => {
-    if (hasCompletedCycle) return;
-
-    const interval = setInterval(() => {
-      setCurrentTipIndex((prev) => {
-        const nextIndex = prev + 1;
-        if (nextIndex >= tips.length) {
-          setHasCompletedCycle(true);
-          return 0; // Reset to first tip after completing cycle
-        }
-        return nextIndex;
-      });
-    }, 8000); // Change tip every 8 seconds
-
-    return () => clearInterval(interval);
-  }, [tips.length, hasCompletedCycle]);
 
   // Function to start a new conversation thread
   const startNewThread = () => {
@@ -136,9 +50,6 @@ export default function TerminalPage() {
           return;
         }
       }
-
-      // The attached files will be updated through the onAttachedFilesChange callback
-      // No need to manually update here
     }
   };
 
@@ -172,146 +83,128 @@ export default function TerminalPage() {
           appearance: none;
           width: 20px;
           height: 20px;
-          background: ${customColors.primary};
+          background: var(--custom-primary-color, #f97316);
           border-radius: 50%;
           cursor: pointer;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           transition: all 0.2s;
         }
-
         .slider::-webkit-slider-thumb:hover {
           transform: scale(1.1);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
-
         .slider::-moz-range-thumb {
           width: 20px;
           height: 20px;
-          background: ${customColors.primary};
+          background: var(--custom-primary-color, #f97316);
           border-radius: 50%;
           cursor: pointer;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           transition: all 0.2s;
           border: none;
         }
-
         .slider::-moz-range-thumb:hover {
           transform: scale(1.1);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
+        .btn-primary {
+          background-color: var(--custom-primary-color) !important;
+          color: var(--custom-primary-text-color) !important;
+        }
+        .btn-primary:hover {
+          background-color: var(--custom-hover-primary-color) !important;
+        }
+        .text-primary {
+          color: var(--custom-primary-color) !important;
+        }
+        .border-primary {
+          border-color: var(--custom-primary-color) !important;
+        }
       `}</style>
-      <div className="h-full flex flex-col gap-4 p-4 bg-gray-50">
+      <div className="flex flex-col gap-4 h-full">
         {/* Header Section */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative inline-flex">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${customColors.primary} 0%, ${customColors.primaryDark} 100%)`,
-                }}
-              >
+        <div className="rounded-2xl px-6 py-4 shadow-md btn-primary">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-xl">
                 <Bot className="w-6 h-6 text-white" />
               </div>
-              <div className="absolute -bottom-1 -right-1">
-                <div className="w-3 h-3 bg-green-400 rounded-full border-2 border-gray-50 animate-pulse" />
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white">
+                  AI Terminal
+                </h1>
+                <p
+                  className="text-sm"
+                  style={{
+                    color: "var(--custom-primary-text-color)",
+                    opacity: 0.8,
+                  }}
+                >
+                  Your intelligent coding assistant
+                </p>
               </div>
-            </div>
-            <div>
-              <h1
-                className="text-2xl font-bold tracking-tight"
-                style={{ color: customColors.primary }}
-              >
-                AI Terminal
-              </h1>
-              <p className="text-sm text-gray-500">
-                Your intelligent coding assistant
-              </p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-          {/* Terminal Component - Takes 2 columns */}
-          <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
-            <Terminal
-              ref={terminalRef}
-              onMessage={handleTerminalMessage}
-              onFileSelect={handleFilesDetached}
-              attachedFiles={attachedFiles}
-              onAttachedFilesChange={setAttachedFiles}
-              temperature={temperature}
-              responseStyle={responseStyle}
-              threadId={threadId}
-              onClear={startNewThread}
-              className="flex-1 min-h-0"
-            />
-
-            {/* Tips Component - Below terminal, aligned with its bottom */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 flex-1 min-h-0">
+          {/* Terminal Component */}
+          <div className="lg:col-span-3 flex flex-col gap-6 min-h-0">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-24"
+              transition={{ delay: 0.1 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col min-h-0"
             >
-              <div className="h-full flex items-center px-6">
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <motion.div
-                      key={currentTipIndex}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex-1 min-w-0"
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <span
-                          className="text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: customColors.primary }}
-                        >
-                          {tips[currentTipIndex].title}
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {tips[currentTipIndex].content}
-                        </span>
-                      </div>
-                    </motion.div>
-                  </div>
-                  {/* Minimal progress indicator - vertical */}
-                  <div className="flex flex-col items-center gap-1.5 ml-4">
-                    {tips.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setCurrentTipIndex(index);
-                          setHasCompletedCycle(false); // Resume cycling when user manually changes
-                        }}
-                        className={`transition-all duration-300 ${
-                          index === currentTipIndex ? "w-1 h-6" : "w-1 h-1"
-                        } rounded-full`}
-                        style={{
-                          backgroundColor:
-                            index === currentTipIndex
-                              ? customColors.primary
-                              : `${customColors.primary}30`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
+              <Terminal
+                ref={terminalRef}
+                onMessage={handleTerminalMessage}
+                onFileSelect={handleFilesDetached}
+                attachedFiles={attachedFiles}
+                onAttachedFilesChange={setAttachedFiles}
+                temperature={temperature}
+                responseStyle={responseStyle}
+                threadId={threadId}
+                onClear={startNewThread}
+                className="flex-1 min-h-0"
+              />
+            </motion.div>
+
+            {/* Multi-line Hint */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden p-4 hidden lg:flex items-center justify-between w-full"
+            >
+              <div>
+                <h3
+                  className="text-xs font-semibold uppercase tracking-wider text-primary"
+                  style={{ color: "var(--custom-primary-color)" }}
+                >
+                  MULTI-LINE
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Shift+Enter for new lines
+                </p>
               </div>
+              <div
+                className="w-1 h-8 rounded-full"
+                style={{
+                  backgroundColor: "var(--custom-primary-color, #F97316)",
+                  opacity: 0.2,
+                }}
+              />
             </motion.div>
           </div>
 
           {/* Right Sidebar */}
-          <div className="space-y-3 flex flex-col h-full">
-            {/* Files List */}
+          <div className="lg:col-span-2 space-y-6 flex flex-col">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col min-h-0"
+              transition={{ delay: 0.2 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-0"
             >
               <TerminalFileLibrary
                 key={fileLibraryKey}
@@ -326,41 +219,42 @@ export default function TerminalPage() {
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col"
+              transition={{ delay: 0.3 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0"
             >
               <div
                 className="px-4 py-3 border-b border-gray-100"
-                style={{ backgroundColor: `${customColors.primary}10` }}
+                style={{
+                  backgroundColor:
+                    "rgba(var(--custom-primary-rgb, 249, 115, 22), 0.05)",
+                }}
               >
                 <div className="flex items-center gap-2">
-                  <Settings
-                    className="w-5 h-5"
-                    style={{ color: customColors.primary }}
-                  />
-                  <h2 className="text-lg font-semibold text-gray-900">
+                  <Settings className="w-5 h-5 text-primary opacity-50" />
+                  <h2 className="text-lg font-semibold text-gray-900/50">
                     Terminal Config
                   </h2>
                 </div>
               </div>
-              <div className="p-4 space-y-4 flex-1 flex flex-col">
-                {/* Temperature Slider */}
+              <div className="p-4 space-y-6 flex-1 flex flex-col overflow-y-auto">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-900">
+                    <label className="text-sm font-bold text-gray-800">
                       AI Creativity
                     </label>
-                    <span
-                      className="text-sm font-mono px-2 py-1 rounded-md"
+                    <div
+                      className="text-sm font-mono px-2.5 py-1.5 rounded-lg"
                       style={{
-                        backgroundColor: `${customColors.primary}15`,
-                        color: customColors.primary,
+                        backgroundColor:
+                          "rgba(var(--custom-primary-rgb, 249, 115, 22), 0.1)",
                       }}
                     >
-                      {temperature.toFixed(1)}
-                    </span>
+                      <span style={{ color: "var(--custom-primary-color)" }}>
+                        {temperature.toFixed(1)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="relative">
+                  <div className="relative pt-2">
                     <input
                       type="range"
                       min="0"
@@ -372,27 +266,24 @@ export default function TerminalPage() {
                       }
                       className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer slider"
                       style={{
-                        background: `linear-gradient(to right, #e5e7eb 0%, ${
-                          customColors.primary
-                        } ${temperature * 100}%, #e5e7eb ${
+                        background: `linear-gradient(to right, #e5e7eb 0%, var(--custom-primary-color, #F97316) ${
                           temperature * 100
-                        }%, #e5e7eb 100%)`,
+                        }%, #e5e7eb ${temperature * 100}%, #e5e7eb 100%)`,
                       }}
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-2">
                       <span>Focused</span>
-                      <span>Balanced</span>
+                      <span className="hidden sm:inline">Balanced</span>
                       <span>Creative</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Response Style */}
                 <div className="space-y-3 flex-1">
-                  <label className="text-sm font-semibold text-gray-900">
+                  <label className="text-sm font-bold text-gray-800">
                     Response Style
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {[
                       { value: "normal", label: "Normal", icon: "💬" },
                       { value: "concise", label: "Concise", icon: "📝" },
@@ -405,26 +296,24 @@ export default function TerminalPage() {
                       <button
                         key={style.value}
                         onClick={() => setResponseStyle(style.value)}
-                        className={`p-3 rounded-xl border-2 transition-all duration-200 hover:shadow-sm ${
+                        className={`p-3 rounded-xl border-2 transition-all duration-200 text-left ${
                           responseStyle === style.value
-                            ? "border-opacity-100"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-primary shadow-sm"
+                            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                         }`}
-                        style={{
-                          borderColor:
-                            responseStyle === style.value
-                              ? customColors.primary
-                              : undefined,
-                          backgroundColor:
-                            responseStyle === style.value
-                              ? `${customColors.primary}08`
-                              : undefined,
-                        }}
+                        style={
+                          responseStyle === style.value
+                            ? {
+                                backgroundColor:
+                                  "rgba(var(--custom-primary-rgb, 249, 115, 22), 0.08)",
+                              }
+                            : {}
+                        }
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{style.icon}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{style.icon}</span>
                           <span
-                            className={`text-sm font-medium ${
+                            className={`text-sm font-semibold ${
                               responseStyle === style.value
                                 ? "text-gray-900"
                                 : "text-gray-700"
@@ -440,93 +329,6 @@ export default function TerminalPage() {
               </div>
             </motion.div>
           </div>
-        </div>
-
-        {/* Bottom Stats Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-50 rounded-xl">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">
-                  Commands Today
-                </p>
-                <p className="text-xl font-bold text-gray-900">
-                  {commandHistory.length}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="p-2.5 rounded-xl"
-                style={{ backgroundColor: `${customColors.primary}15` }}
-              >
-                <Zap
-                  className="w-5 h-5"
-                  style={{ color: customColors.primary }}
-                />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">
-                  AI Suggestions
-                </p>
-                <p className="text-xl font-bold text-gray-900">24</p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-50 rounded-xl">
-                <Trophy className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">
-                  Lines Improved
-                </p>
-                <p className="text-xl font-bold text-gray-900">156</p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-orange-50 rounded-xl">
-                <Flame className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">
-                  Learning Streak
-                </p>
-                <p className="text-xl font-bold text-gray-900">7 days</p>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </div>
     </>

@@ -5,6 +5,8 @@ const { createReactAgent } = require("@langchain/langgraph/prebuilt");
 const { z } = require("zod");
 const webSearchService = require("../webSearchServiceImpl.js");
 const { getSystemPromptForStyle } = require("../../config/responseStyles.js");
+const User = require("../../models/users.model");
+const mongoose = require("mongoose");
 
 /**
  * Base Agent Class - Foundation for all AI agents in the system
@@ -20,6 +22,7 @@ class BaseAgent {
       responseStyle: "normal",
       systemPrompt: null, // Will be set based on responseStyle
       enableMemory: true, // Enable LangGraph memory by default
+      userId: null, // <-- Add userId to the agent's config
       ...config,
     };
 
@@ -382,9 +385,29 @@ class BaseAgent {
    * Format input for the agent with memory optimization
    */
   async formatInput(input) {
-    // Handle null or undefined input
     if (input === null || input === undefined) {
       throw new Error("Input cannot be null or undefined");
+    }
+
+    // Handle multimodal input (text + image)
+    if (typeof input === "object" && !Array.isArray(input) && !input.messages) {
+      const textContent = input.message || input.content;
+      const { imageData } = input;
+
+      if (textContent && imageData && imageData.base64 && imageData.mimeType) {
+        const imageUrl = `data:${imageData.mimeType};base64,${imageData.base64}`;
+        return {
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: textContent },
+                { type: "image_url", image_url: { url: imageUrl } },
+              ],
+            },
+          ],
+        };
+      }
     }
 
     let formattedInput;
@@ -409,10 +432,16 @@ class BaseAgent {
         messages: [input],
       };
     }
+    // Handle object with just content/message
+    else if (typeof input === "object" && (input.message || input.content)) {
+      formattedInput = {
+        messages: [{ role: "user", content: input.message || input.content }],
+      };
+    }
     // Otherwise, throw an error for invalid input
     else {
       throw new Error(
-        "Invalid input format. Expected string, message object, or messages array."
+        "Invalid input format. Expected string, message object, messages array, or object with content/message and optional imageData."
       );
     }
 

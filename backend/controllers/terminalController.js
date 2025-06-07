@@ -53,6 +53,7 @@ const terminalController = {
         model,
         responseStyle,
         threadId,
+        imageData, // Receive imageData from the frontend
       } = req.body;
 
       if (!message || typeof message !== "string") {
@@ -85,33 +86,19 @@ const terminalController = {
         });
       }
 
-      // Process attached files to extract content
-      const processedFiles = [];
+      // The `imageData` field is now passed directly from the frontend.
+      // The old `processedFiles` logic is no longer needed for vision capabilities.
       console.log(
-        `[Terminal] Processing ${attachedFiles.length} attached files`
+        `[Terminal] Received message with ${attachedFiles.length} attached files.`
       );
-
-      for (const file of attachedFiles) {
-        try {
-          const processedFile = await processAttachedFile(file, userId);
-          if (processedFile) {
-            console.log(
-              `[Terminal] Processed file ${file.fileName}, content length: ${processedFile.content ? processedFile.content.length : 0}`
-            );
-            processedFiles.push(processedFile);
-          } else {
-            console.log(
-              `[Terminal] Failed to process file ${file.fileName} - no content extracted`
-            );
-          }
-        } catch (fileError) {
-          console.error(`Error processing file ${file.fileName}:`, fileError);
-          // Continue processing other files
-        }
+      if (imageData) {
+        console.log(
+          `[Terminal] Image data received for processing (${imageData.mimeType})`
+        );
       }
 
-      // Calculate approximate token count for rate limiting
-      tokenCount = estimateTokenCount(message, processedFiles);
+      // Calculate approximate token count for rate limiting (text only for now)
+      tokenCount = estimateTokenCount(message, []); // Text-based files are not the focus here
 
       // Check token rate limit
       if (!checkTokenLimit(userId, tokenCount)) {
@@ -123,18 +110,24 @@ const terminalController = {
       }
 
       // Get or create agent instance from cache
-      const agent = getOrCreateAgent(threadId, {
-        temperature: temperature || 0.7,
-        modelName: model || "claude-3-5-sonnet-latest",
-        responseStyle: responseStyle || "normal",
-      });
+      const agent = getOrCreateAgent(
+        threadId,
+        {
+          temperature: temperature || 0.7,
+          modelName: model || "claude-3-5-sonnet-latest",
+          responseStyle: responseStyle || "normal",
+          userId: userId, // Pass userId to the agent
+        },
+        userId
+      );
 
       // Process the message with conversation context
       console.log(
-        `[Terminal] Processing message for user ${userId} with ${processedFiles.length} files, style: ${responseStyle || "normal"}, thread: ${threadId || "new"}`
+        `[Terminal] Processing message for user ${userId}, style: ${responseStyle || "normal"}, thread: ${threadId || "new"}`
       );
-      const result = await agent.processMessage(message, processedFiles, {
+      const result = await agent.processMessage(message, attachedFiles, {
         threadId,
+        imageData, // Pass the image data directly to the agent
       });
 
       // Update rate limit counters
@@ -157,7 +150,7 @@ const terminalController = {
             ...result.metadata,
             processingTime,
             approximateTokens: tokenCount,
-            filesProcessed: processedFiles.length,
+            filesProcessed: attachedFiles.length, // Keep track of total files
           },
         });
       } else {
@@ -306,7 +299,7 @@ async function processAttachedFile(file, userId) {
 /**
  * Get or create an agent from the cache
  */
-function getOrCreateAgent(threadId, config) {
+function getOrCreateAgent(threadId, config, userId) {
   if (agentCache.has(threadId)) {
     const cachedAgent = agentCache.get(threadId);
     // Update timestamp to prevent premature eviction
@@ -316,7 +309,7 @@ function getOrCreateAgent(threadId, config) {
   }
 
   console.log(`[Terminal] Creating new agent for thread ${threadId}`);
-  const newAgent = createTerminalAgent(config);
+  const newAgent = createTerminalAgent({ ...config, userId }); // Pass userId here
   agentCache.set(threadId, {
     agent: newAgent,
     lastAccessed: Date.now(),

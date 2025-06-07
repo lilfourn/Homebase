@@ -5,15 +5,15 @@ import AddCourseForm from "@/app/components/dashboard/AddCourseForm";
 import UserCourseList from "@/app/components/dashboard/UserCourseList";
 import SchoolSidebarItem from "@/app/components/ui/SchoolSidebarItem";
 import Sidebar, { SidebarItem } from "@/app/components/ui/sidebar";
+import { AgentProvider } from "@/app/context/AgentContext";
 import { CourseProvider } from "@/app/context/CourseContext";
 import {
   SchoolUpdateProvider,
   useSchoolUpdate,
 } from "@/app/context/SchoolUpdateContext";
 import { TASetupProvider } from "@/app/context/TASetupContext";
-import { AgentProvider } from "@/app/context/AgentContext";
 import { useUser } from "@clerk/nextjs";
-import { BookCopy, Settings, User, Bot, Terminal } from "lucide-react";
+import { BookCopy, Bot, Settings, Terminal, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -193,50 +193,52 @@ export default function DashboardLayout({ children }) {
             <ThemeApplicator />
             <SchoolSelectionModal />
             <div className="flex h-screen">
-          <Sidebar>
-            <SchoolSidebarItem active={isSchoolActive} href="/dashboard" />
-            <SidebarItem
-              icon={<BookCopy size={25} />}
-              text="Your Classes"
-              active={isClassesActive}
-              isDropdown={true}
-              defaultOpen={true}
-              items={[]}
-              customContent={
-                <div className="py-2 space-y-3 w-full px-3">
-                  <UserCourseList />
-                  <AddCourseForm />
-                </div>
-              }
-            />
-            <SidebarItem
-              icon={<Bot size={25} />}
-              text="AI Agents"
-              active={isAgentsActive}
-              href="/dashboard/agents"
-            />
-            <SidebarItem
-              icon={<Terminal size={25} />}
-              text="Terminal"
-              active={isTerminalActive}
-              href="/dashboard/terminal"
-            />
-            <SidebarItem
-              icon={<User size={25} />}
-              text="Your Profile"
-              active={isProfileActive}
-              href="/dashboard/profile"
-            />
-            <hr className="my-1 p-1.5" />
-            <SidebarItem
-              icon={<Settings size={25} />}
-              text="Settings"
-              active={isSettingsActive}
-              href="/dashboard/settings"
-            />
-          </Sidebar>
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
+              <Sidebar>
+                <SchoolSidebarItem active={isSchoolActive} href="/dashboard" />
+                <SidebarItem
+                  icon={<BookCopy size={25} />}
+                  text="Your Classes"
+                  active={isClassesActive}
+                  isDropdown={true}
+                  defaultOpen={true}
+                  items={[]}
+                  customContent={
+                    <div className="py-2 space-y-3 w-full px-3">
+                      <UserCourseList />
+                      <AddCourseForm />
+                    </div>
+                  }
+                />
+                <SidebarItem
+                  icon={<Bot size={25} />}
+                  text="AI Agents"
+                  active={isAgentsActive}
+                  href="/dashboard/agents"
+                />
+                <SidebarItem
+                  icon={<Terminal size={25} />}
+                  text="Terminal"
+                  active={isTerminalActive}
+                  href="/dashboard/terminal"
+                />
+                <SidebarItem
+                  icon={<User size={25} />}
+                  text="Your Profile"
+                  active={isProfileActive}
+                  href="/dashboard/profile"
+                />
+                <hr className="my-1 p-1.5" />
+                <SidebarItem
+                  icon={<Settings size={25} />}
+                  text="Settings"
+                  active={isSettingsActive}
+                  href="/dashboard/settings"
+                />
+              </Sidebar>
+              <main className="flex-1 overflow-y-auto bg-gray-100 p-4">
+                {children}
+              </main>
+            </div>
           </AgentProvider>
         </TASetupProvider>
       </CourseProvider>

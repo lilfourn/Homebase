@@ -1,20 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const { requireAuth } = require("@clerk/express");
-const { 
-  fileProcessingController, 
+const {
+  fileProcessingController,
   upload,
   processTerminalFile,
   importTerminalGoogleDriveFile,
   removeTerminalFile,
-  getTerminalFileContent
+  getTerminalFileContent,
+  getTerminalFile,
 } = require("../controllers/fileProcessingController");
 
 // Process uploaded file
 router.post(
   "/process/upload",
   requireAuth(),
-  upload.single('file'),
+  upload.single("file"),
   fileProcessingController.processUploadedFile
 );
 
@@ -37,7 +38,7 @@ router.post(
 router.post(
   "/terminal/upload",
   requireAuth(),
-  upload.single('file'),
+  upload.single("file"),
   processTerminalFile
 );
 
@@ -49,11 +50,7 @@ router.post(
 );
 
 // Remove file from terminal
-router.delete(
-  "/terminal/file/:fileId",
-  requireAuth(),
-  removeTerminalFile
-);
+router.delete("/terminal/file/:fileId", requireAuth(), removeTerminalFile);
 
 // Get local file content
 router.get(
@@ -61,5 +58,8 @@ router.get(
   requireAuth(),
   getTerminalFileContent
 );
+
+// Get full file metadata
+router.get("/terminal/file/:fileId", requireAuth(), getTerminalFile);
 
 module.exports = router;

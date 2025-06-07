@@ -356,11 +356,30 @@ const TerminalFileLibrary = React.forwardRef(
             continue;
           }
 
+          // --- START: New logic for base64 encoding ---
+          let fileDataB64 = null;
+          if (file.type.startsWith("image/")) {
+            try {
+              const reader = new FileReader();
+              fileDataB64 = await new Promise((resolve, reject) => {
+                reader.onloadend = () =>
+                  resolve(reader.result.toString().split(",")[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              });
+            } catch (err) {
+              console.error("Failed to encode image to base64", err);
+              // Continue without base64 data, the upload will still proceed
+            }
+          }
+          // --- END: New logic for base64 encoding ---
+
           // Show uploading state
           setUploadingFiles((prev) => new Map(prev).set(file.name, 0));
 
           try {
-            const response = await uploadTerminalFile(file, token);
+            // Pass the base64 data during the upload
+            const response = await uploadTerminalFile(file, token, fileDataB64);
 
             if (response.success) {
               showToast(`Uploaded ${file.name}`);
@@ -491,16 +510,16 @@ const TerminalFileLibrary = React.forwardRef(
         {dragActive && (
           <div
             className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm border-2 border-dashed rounded-lg"
-            style={{ borderColor: customColors.primary }}
+            style={{ borderColor: "var(--custom-primary-color)" }}
           >
             <div className="text-center">
               <Upload
                 className="w-12 h-12 mx-auto mb-3"
-                style={{ color: customColors.primary }}
+                style={{ color: "var(--custom-primary-color)" }}
               />
               <p
                 className="text-lg font-medium"
-                style={{ color: customColors.primary }}
+                style={{ color: "var(--custom-primary-color)" }}
               >
                 Drop files to upload
               </p>
@@ -512,19 +531,19 @@ const TerminalFileLibrary = React.forwardRef(
         {/* Header */}
         <div
           className="px-4 py-3 border-b border-gray-100 flex-shrink-0"
-          style={{ backgroundColor: `${customColors.primary}10` }}
+          style={{
+            backgroundColor:
+              "rgba(var(--custom-primary-rgb, 249, 115, 22), 0.05)",
+          }}
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <FolderOpen
-                className="w-5 h-5"
-                style={{ color: customColors.primary }}
-              />
-              <h2 className="text-lg font-semibold text-gray-900">
+              <FolderOpen className="w-5 h-5 text-primary opacity-50" />
+              <h2 className="text-lg font-semibold text-gray-900/80">
                 File Library
               </h2>
               {allFiles.length > 0 && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-gray-500 hidden sm:inline">
                   ({allFiles.length} files)
                 </span>
               )}
@@ -544,7 +563,7 @@ const TerminalFileLibrary = React.forwardRef(
           </div>
 
           {/* Search Bar */}
-          <div className="relative">
+          <div className="relative mt-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -552,7 +571,7 @@ const TerminalFileLibrary = React.forwardRef(
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-9 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-20"
-              style={{ focusRingColor: customColors.primary }}
+              style={{ focusRingColor: "var(--custom-primary-color)" }}
             />
             {searchQuery && (
               <button
@@ -566,7 +585,7 @@ const TerminalFileLibrary = React.forwardRef(
 
           {/* Selection Actions */}
           {selectedFileIds.size > 0 && (
-            <div className="flex items-center justify-between mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 gap-2">
               <span className="text-sm text-gray-700">
                 {selectedFileIds.size} file
                 {selectedFileIds.size !== 1 ? "s" : ""} selected
@@ -589,8 +608,7 @@ const TerminalFileLibrary = React.forwardRef(
                 </button>
                 <button
                   onClick={handleAttachSelected}
-                  className="px-3 py-1.5 text-sm font-medium text-white rounded-md hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                  style={{ backgroundColor: customColors.primary }}
+                  className="px-3 py-1.5 text-sm font-medium text-white rounded-md hover:opacity-90 transition-opacity flex items-center gap-1.5 btn-primary"
                   disabled={isImporting}
                 >
                   {isImporting ? (
@@ -606,7 +624,7 @@ const TerminalFileLibrary = React.forwardRef(
         </div>
 
         {/* File List */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-4">
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2
@@ -793,7 +811,7 @@ const TerminalFileLibrary = React.forwardRef(
         </div>
 
         {/* Upload Button */}
-        <div className="p-4 border-t border-gray-100 flex-shrink-0 relative">
+        <div className="p-2 sm:p-4 border-t border-gray-100 flex-shrink-0 relative">
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -808,8 +826,7 @@ const TerminalFileLibrary = React.forwardRef(
           <div className="relative">
             <button
               onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: customColors.primary }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white transition-colors hover:opacity-90 btn-primary"
             >
               <Upload className="w-4 h-4" />
               <span>Import Files</span>
@@ -826,10 +843,7 @@ const TerminalFileLibrary = React.forwardRef(
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                   disabled={!isGoogleDriveConnected}
                 >
-                  <Cloud
-                    className="w-5 h-5"
-                    style={{ color: customColors.primary }}
-                  />
+                  <Cloud className="w-5 h-5 text-primary" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
                       Google Drive
@@ -851,10 +865,7 @@ const TerminalFileLibrary = React.forwardRef(
                   }}
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                 >
-                  <HardDrive
-                    className="w-5 h-5"
-                    style={{ color: customColors.primary }}
-                  />
+                  <HardDrive className="w-5 h-5 text-primary" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
                       From Computer

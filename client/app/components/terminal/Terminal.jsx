@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Bot,
   Check,
   ChevronRight,
   Copy,
@@ -35,15 +36,16 @@ const Terminal = forwardRef(
     },
     ref
   ) => {
-    const [messages, setMessages] = useState([
-      {
-        id: 1,
-        type: "system",
-        content:
-          "HomeBase Terminal v1.0.0\nClaude AI Assistant initialized.\n\nType 'help' for available commands or ask me anything.",
-        timestamp: new Date(),
-      },
-    ]);
+    const getWelcomeMessage = () => ({
+      id: Date.now(),
+      type: "system",
+      content:
+        "HomeBase Terminal v1.0.0\nYour intelligent coding assistant is ready.\n\nType 'help' for available commands or ask me anything.",
+      timestamp: new Date(),
+      isWelcome: true,
+    });
+
+    const [messages, setMessages] = useState([getWelcomeMessage()]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
@@ -61,204 +63,38 @@ const Terminal = forwardRef(
       }
     };
 
-    // Get custom colors from CSS variables - default values for SSR
-    const [customColors, setCustomColors] = useState({
-      primary: "#6366f1",
-      primaryDark: "#4c1d95",
-      textColor: "#ffffff",
-    });
-
     // Expose methods to parent component
     useImperativeHandle(
       ref,
       () => ({
         getAttachedFiles: () => attachedFiles,
         attachFiles: async (filesToAttach) => {
-          // Process and attach files from the file list
           if (!filesToAttach || filesToAttach.length === 0) return [];
-
-          // Get current attached file IDs for duplicate checking
           const currentFileIds = new Set(attachedFiles.map((f) => f.id));
-
-          // Filter out files that are already attached
           const uniqueFilesToAttach = filesToAttach.filter(
             (file) => !currentFileIds.has(file.id)
           );
 
           if (uniqueFilesToAttach.length === 0) return attachedFiles;
 
-          // Convert selected files to the format expected by AttachedFilesBar
           const newFiles = uniqueFilesToAttach.map((file) => ({
             id: file.id,
-            fileId: file.fileId || file.id, // Use fileId for Google Drive, id for local
+            fileId: file.fileId || file.id,
             fileName: file.name,
-            name: file.name,
-            type: file.type,
-            size: file.size,
             mimeType: file.mimeType,
-            source: file.source || "google_drive", // IMPORTANT: Include source field
-            uploadedAt: file.uploadedAt,
-            processing: true, // Will be processed when added
+            source: file.source || "google_drive",
+            // We no longer pre-process, so these flags are simplified
+            processed: true,
+            processing: false,
+            error: null,
           }));
 
-          // Add files with processing state
-          const initialFiles = [...attachedFiles, ...newFiles];
-          setAttachedFiles(initialFiles);
-
-          // Process each file
-          const token = await getToken();
-          let googleDriveAuthError = false;
-          const results = [];
-
-          // Process all files and collect results
-          for (const file of newFiles) {
-            try {
-              let result;
-
-              console.log(`[Terminal] Processing file: ${file.fileName}`, {
-                id: file.id,
-                fileId: file.fileId,
-                source: file.source,
-                mimeType: file.mimeType,
-              });
-
-              // Check file source to determine processing method
-              if (file.source === "local_upload") {
-                // For local files, get content from our backend
-                const { getTerminalFileContent } = await import(
-                  "@/app/api/fileProcessing.api"
-                );
-                const response = await getTerminalFileContent(file.id, token);
-
-                // Format response to match Google Drive structure
-                result = {
-                  success: response.success,
-                  file: response.file,
-                  content: response.file.content,
-                  fileName: response.file.fileName,
-                  mimeType: response.file.mimeType,
-                  size: response.file.size,
-                  metadata: {
-                    source: "local_upload",
-                    uploadedAt: response.file.uploadedAt,
-                  },
-                  wordCount: response.file.wordCount,
-                  preview: response.file.preview,
-                };
-              } else {
-                // For Google Drive files, use existing method
-                const { processGoogleDriveFile } = await import(
-                  "@/app/api/fileProcessing.api"
-                );
-                result = await processGoogleDriveFile(
-                  file.fileId,
-                  file.fileName,
-                  token
-                );
-              }
-
-              results.push({
-                fileId: file.id,
-                success: true,
-                data: result,
-              });
-            } catch (error) {
-              console.error("Error processing file:", error);
-
-              // Check if this is a Google Drive authentication error
-              if (error.isGoogleDriveAuthError) {
-                googleDriveAuthError = true;
-
-                // Show system message about Google Drive authentication issue
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: Date.now(),
-                    type: "system",
-                    content:
-                      "⚠️ Google Drive authentication failed. Please reconnect your Google Drive account in Settings.",
-                    timestamp: new Date(),
-                  },
-                ]);
-              }
-
-              results.push({
-                fileId: file.id,
-                success: false,
-                error: error.error || error.message || "Failed to process file",
-              });
-            }
-          }
-
-          // Batch update all files at once
-          const finalFiles = initialFiles.map((f) => {
-            const result = results.find((r) => r.fileId === f.id);
-            if (!result) return f; // Not a file we just processed
-
-            if (result.success) {
-              return {
-                ...f,
-                ...result.data,
-                processing: false,
-                processed: true,
-                error: null,
-              };
-            } else {
-              return {
-                ...f,
-                processing: false,
-                processed: false,
-                error: result.error,
-              };
-            }
-          });
-
-          // Update all files at once
-          setAttachedFiles(finalFiles);
-
-          // Return updated array
-          return googleDriveAuthError ? { authError: true } : attachedFiles;
+          setAttachedFiles((prev) => [...prev, ...newFiles]);
+          return [...attachedFiles, ...newFiles];
         },
       }),
-      [attachedFiles, getToken, setMessages]
+      [attachedFiles, setAttachedFiles]
     );
-
-    // Update colors on client side only
-    useEffect(() => {
-      const computedStyle = getComputedStyle(document.documentElement);
-      const primaryColor =
-        computedStyle.getPropertyValue("--custom-primary-color")?.trim() ||
-        "#6366f1";
-
-      // Calculate if text should be white or black based on background
-      const getTextColor = (hexColor) => {
-        // Convert hex to RGB
-        const r = parseInt(hexColor.substring(1, 3), 16);
-        const g = parseInt(hexColor.substring(3, 5), 16);
-        const b = parseInt(hexColor.substring(5, 7), 16);
-
-        // Calculate brightness
-        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-
-        // Return white for dark backgrounds, black for light
-        return brightness > 128 ? "#000000" : "#ffffff";
-      };
-
-      // Generate darker shade
-      const adjustColor = (color, amount) => {
-        const num = parseInt(color.replace("#", ""), 16);
-        const r = Math.min(255, Math.max(0, (num >> 16) + amount));
-        const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + amount));
-        const b = Math.min(255, Math.max(0, (num & 0x0000ff) + amount));
-        return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-      };
-
-      setCustomColors({
-        primary: primaryColor,
-        primaryDark: adjustColor(primaryColor, -40),
-        textColor: getTextColor(primaryColor),
-      });
-    }, []);
 
     // Auto-scroll to bottom when new messages arrive
     const scrollToBottom = () => {
@@ -284,15 +120,16 @@ const Terminal = forwardRef(
         type: "user",
         content: input.trim(),
         timestamp: new Date(),
-        attachedFiles: attachedFiles.filter((f) => f.processed), // Only include processed files
+        attachedFiles: attachedFiles,
       };
 
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages((prev) => {
+        const otherMessages = prev.filter((m) => !m.isWelcome);
+        return [...otherMessages, userMessage];
+      });
       setInput("");
-      setIsLoading(true);
-
-      // Clear attached files after sending
       setAttachedFiles([]);
+      setIsLoading(true);
 
       // Notify parent component if callback provided
       if (onMessage) {
@@ -302,6 +139,32 @@ const Terminal = forwardRef(
       try {
         // Get auth token
         const token = await getToken();
+
+        // --- START: New logic for handling image data ---
+        let imageData = null;
+        const imageFile = userMessage.attachedFiles.find((file) =>
+          file.mimeType?.startsWith("image/")
+        );
+
+        if (imageFile) {
+          try {
+            // Import the new API function
+            const { getTerminalFile } = await import(
+              "@/app/api/fileProcessing.api"
+            );
+            // Fetch the full file data, including base64 content
+            const response = await getTerminalFile(imageFile.id, token);
+            if (response.success && response.file.base64Content) {
+              imageData = {
+                base64: response.file.base64Content,
+                mimeType: response.file.mimeType,
+              };
+            }
+          } catch (imgError) {
+            console.error("Error fetching image data for vision:", imgError);
+          }
+        }
+        // --- END: New logic for handling image data ---
 
         // Import terminal API
         const { processTerminalMessage } = await import(
@@ -317,6 +180,7 @@ const Terminal = forwardRef(
             model: "claude-3-5-sonnet-latest",
             responseStyle: responseStyle,
             threadId: threadId,
+            imageData, // Pass the image data to the backend
           },
           token
         );
@@ -355,31 +219,24 @@ const Terminal = forwardRef(
         hour12: true,
         hour: "numeric",
         minute: "2-digit",
-        second: "2-digit",
       });
     };
 
     return (
       <div
         className={cn(
-          "bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full",
+          "bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full",
           className
         )}
       >
         {/* Terminal Header */}
-        <div
-          className="px-4 py-3 flex-shrink-0"
-          style={{ backgroundColor: customColors.primary }}
-        >
+        <div className="px-4 py-3 flex-shrink-0 bg-slate-800">
           <div className="flex items-center justify-between">
-            <div
-              className="flex items-center gap-2"
-              style={{ color: customColors.textColor }}
-            >
+            <div className="flex items-center gap-2 text-slate-300">
               <TerminalIcon className="w-4 h-4" />
               <span className="text-sm font-mono">homebase-terminal</span>
               {threadId && (
-                <span className="text-xs font-mono opacity-70">
+                <span className="text-xs font-mono opacity-60">
                   [thread active]
                 </span>
               )}
@@ -387,36 +244,16 @@ const Terminal = forwardRef(
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  setMessages([
-                    {
-                      id: Date.now(),
-                      type: "system",
-                      content:
-                        "HomeBase Terminal v1.0.0\nClaude AI Assistant initialized.\n\nType 'help' for available commands or ask me anything.",
-                      timestamp: new Date(),
-                    },
-                  ]);
+                  setMessages([getWelcomeMessage()]);
                   if (onClear) {
                     onClear();
                   }
                 }}
-                className={cn(
-                  "text-xs font-mono px-2 py-1 rounded transition-all",
-                  customColors.textColor === "#ffffff"
-                    ? "text-white/70 hover:text-white hover:bg-white/10"
-                    : "text-black/70 hover:text-black hover:bg-black/10"
-                )}
+                className="text-xs font-mono px-2 py-1 rounded transition-all text-slate-400 hover:text-white hover:bg-white/10"
               >
                 clear
               </button>
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md",
-                  customColors.textColor === "#ffffff"
-                    ? "bg-white/20 text-white"
-                    : "bg-black/10 text-black"
-                )}
-              >
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 text-green-400">
                 <Zap className="w-3 h-3" />
                 <span className="text-xs font-mono">connected</span>
               </div>
@@ -425,8 +262,8 @@ const Terminal = forwardRef(
         </div>
 
         {/* Terminal Content */}
-        <div className="bg-gray-50 overflow-y-auto font-mono text-sm flex-1 min-h-0">
-          <div className="p-4 space-y-2">
+        <div className="bg-white overflow-y-auto font-mono text-sm flex-1 min-h-0">
+          <div className="p-4 space-y-4">
             <AnimatePresence initial={false}>
               {messages.map((message) => (
                 <motion.div
@@ -437,62 +274,83 @@ const Terminal = forwardRef(
                   className="group"
                 >
                   {message.type === "user" && (
-                    <div>
-                      <div className="flex items-start gap-2">
-                        <span
-                          className="select-none"
-                          style={{ color: customColors.primary }}
-                        >
-                          [{formatTimestamp(message.timestamp)}]
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
-                        <span className="text-gray-700 flex-1">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-5 h-5 flex-shrink-0 rounded-full mt-0.5"
+                        style={{
+                          background: `linear-gradient(135deg, var(--custom-primary-color, #F97316) 0%, var(--custom-hover-primary-color, #EA580C) 100%)`,
+                        }}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-sans font-bold text-slate-800">
+                            You
+                          </span>
+                          <span className="font-sans text-xs text-slate-400">
+                            {formatTimestamp(message.timestamp)}
+                          </span>
+                        </div>
+                        <p className="font-sans text-slate-600 leading-relaxed mt-0.5">
                           {message.content}
-                        </span>
+                        </p>
+                        {message.attachedFiles &&
+                          message.attachedFiles.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {message.attachedFiles.map((file, index) => (
+                                <div
+                                  key={index}
+                                  className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs bg-gray-50 text-gray-700 border border-gray-200"
+                                >
+                                  <Paperclip className="w-3 h-3" />
+                                  <span>{file.fileName}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                       </div>
-                      {message.attachedFiles &&
-                        message.attachedFiles.length > 0 && (
-                          <div className="ml-6 mt-1 flex flex-wrap gap-1">
-                            {message.attachedFiles.map((file, index) => (
-                              <span
-                                key={index}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600"
-                              >
-                                <Paperclip className="w-3 h-3" />
-                                {file.fileName}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                     </div>
                   )}
                   {message.type === "system" && (
-                    <div className="text-gray-500 whitespace-pre-wrap">
+                    <div className="text-slate-500 whitespace-pre-wrap font-sans text-center text-xs py-2">
                       {message.content}
                     </div>
                   )}
                   {message.type === "assistant" && (
-                    <div className="relative pl-6">
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-px"
-                        style={{ backgroundColor: `${customColors.primary}30` }}
-                      />
-                      <div className="flex items-start justify-between gap-2">
-                        <pre className="text-gray-700 whitespace-pre-wrap flex-1">
-                          {message.content}
-                        </pre>
-                        <button
-                          onClick={() =>
-                            handleCopy(message.content, message.id)
-                          }
-                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-200 rounded"
-                        >
-                          {copiedId === message.id ? (
-                            <Check className="w-3.5 h-3.5 text-green-600" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5 text-gray-400" />
-                          )}
-                        </button>
+                    <div className="flex items-start gap-3">
+                      <div className="w-5 h-5 flex-shrink-0 bg-slate-800 rounded-full flex items-center justify-center mt-0.5">
+                        <Bot className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-sans font-bold text-slate-800">
+                            AI Assistant
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-px"
+                            style={{
+                              backgroundColor:
+                                "var(--custom-primary-color, #F97316)",
+                              opacity: 0.2,
+                            }}
+                          />
+                          <pre className="font-sans text-slate-600 whitespace-pre-wrap leading-relaxed mt-0.5">
+                            {message.content}
+                          </pre>
+                          <button
+                            onClick={() =>
+                              handleCopy(message.content, message.id)
+                            }
+                            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-100 rounded"
+                          >
+                            {copiedId === message.id ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -504,11 +362,11 @@ const Terminal = forwardRef(
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-2 text-gray-500"
+                className="flex items-center gap-2 text-slate-500"
               >
                 <Loader2
                   className="w-4 h-4 animate-spin"
-                  style={{ color: customColors.primary }}
+                  style={{ color: "var(--custom-primary-color, #F97316)" }}
                 />
                 <span className="animate-pulse">Processing...</span>
               </motion.div>
@@ -518,8 +376,8 @@ const Terminal = forwardRef(
           </div>
         </div>
 
-        {/* Attached Files Bar */}
-        <div className="border-t border-gray-200 flex-shrink-0">
+        {/* Attached Files Bar & Input */}
+        <div className="border-t border-gray-100 flex-shrink-0 bg-white p-4">
           <AttachedFilesBar
             attachedFiles={attachedFiles}
             setAttachedFiles={setAttachedFiles}
@@ -527,22 +385,17 @@ const Terminal = forwardRef(
             courseFiles={courseFiles}
             onFileSelect={onFileSelect}
             onFileRemove={() => {
-              // Notify parent about file removal
               if (onFileSelect) {
                 onFileSelect();
               }
             }}
-            customColors={customColors}
-            className="px-4 pt-3"
+            className={attachedFiles.length > 0 ? "mb-3" : ""}
           />
-
-          {/* Terminal Input - Auto-expanding */}
           <AutoExpandingInput
             value={input}
             onChange={setInput}
             onSubmit={handleSubmit}
             isLoading={isLoading}
-            customColors={customColors}
             hasAttachments={attachedFiles.length > 0}
           />
         </div>

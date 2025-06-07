@@ -130,8 +130,8 @@ const UserSchema = mongoose.Schema(
       {
         fileId: {
           type: String,
-          required: function() {
-            return this.source === 'google_drive';
+          required: function () {
+            return this.source === "google_drive";
           },
         },
         fileName: {
@@ -144,46 +144,50 @@ const UserSchema = mongoose.Schema(
           type: String,
           required: true,
           validate: {
-            validator: function(v) {
+            validator: function (v) {
               // Allowed mime types for security
               const allowedTypes = [
                 // Documents
-                'application/pdf',
-                'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.ms-powerpoint',
-                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-powerpoint",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 // Text
-                'text/plain',
-                'text/csv',
-                'text/markdown',
+                "text/plain",
+                "text/csv",
+                "text/markdown",
                 // Code
-                'text/javascript',
-                'application/javascript',
-                'text/typescript',
-                'text/x-python',
-                'text/x-java-source',
-                'text/html',
-                'text/css',
-                'application/json',
+                "text/javascript",
+                "application/javascript",
+                "text/typescript",
+                "text/x-python",
+                "text/x-java-source",
+                "text/html",
+                "text/css",
+                "application/json",
                 // Images
-                'image/jpeg',
-                'image/png',
-                'image/gif',
-                'image/webp',
-                'image/svg+xml',
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+                "image/svg+xml",
                 // Google Drive folders
-                'application/vnd.google-apps.folder',
-                'application/vnd.google-apps.document',
-                'application/vnd.google-apps.spreadsheet',
-                'application/vnd.google-apps.presentation'
+                "application/vnd.google-apps.folder",
+                "application/vnd.google-apps.document",
+                "application/vnd.google-apps.spreadsheet",
+                "application/vnd.google-apps.presentation",
               ];
-              return allowedTypes.includes(v) || v.startsWith('text/') || v.startsWith('application/vnd.google-apps.');
+              return (
+                allowedTypes.includes(v) ||
+                v.startsWith("text/") ||
+                v.startsWith("application/vnd.google-apps.")
+              );
             },
-            message: 'File type not allowed for security reasons'
-          }
+            message: "File type not allowed for security reasons",
+          },
         },
         size: {
           type: Number,
@@ -192,8 +196,8 @@ const UserSchema = mongoose.Schema(
         },
         source: {
           type: String,
-          enum: ['google_drive', 'local_upload'],
-          default: 'google_drive',
+          enum: ["google_drive", "local_upload"],
+          default: "google_drive",
           required: true,
         },
         // For local uploads, store processed content
@@ -235,11 +239,14 @@ const UserSchema = mongoose.Schema(
         },
         scanStatus: {
           type: String,
-          enum: ['pending', 'clean', 'infected', 'error'],
-          default: 'pending',
+          enum: ["pending", "clean", "infected", "error"],
+          default: "pending",
         },
         lastScannedAt: {
           type: Date,
+        },
+        base64Content: {
+          type: String,
         },
       },
     ],
@@ -258,7 +265,7 @@ const UserSchema = mongoose.Schema(
         totalTimesSaved: {
           type: Number,
           default: 0,
-        }
+        },
       },
       researcher: {
         topicsResearched: {
@@ -272,7 +279,7 @@ const UserSchema = mongoose.Schema(
         papersAnalyzed: {
           type: Number,
           default: 0,
-        }
+        },
       },
       flashcardMaker: {
         flashcardsCreated: {
@@ -286,7 +293,7 @@ const UserSchema = mongoose.Schema(
         decksCreated: {
           type: Number,
           default: 0,
-        }
+        },
       },
       homeworkAssistant: {
         problemsSolved: {
@@ -300,8 +307,8 @@ const UserSchema = mongoose.Schema(
         assignmentsCompleted: {
           type: Number,
           default: 0,
-        }
-      }
+        },
+      },
     },
   },
   {

@@ -1,34 +1,33 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { ChevronRight, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ArrowUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-export default function AutoExpandingInput({ 
-  value, 
-  onChange, 
-  onSubmit, 
-  isLoading, 
-  placeholder = "Enter command or question...",
-  minHeight = 40,
-  customColors,
-  className 
+export default function AutoExpandingInput({
+  value,
+  onChange,
+  onSubmit,
+  isLoading,
+  placeholder = "Reply to AI Assistant...",
+  minHeight = 96, // Increased height
+  className,
 }) {
   const textareaRef = useRef(null);
   const [height, setHeight] = useState(minHeight);
   const [maxHeight, setMaxHeight] = useState(300);
   const hiddenDivRef = useRef(null);
 
-  // Calculate max height as 10% of viewport
+  // Calculate max height as 20% of viewport
   useEffect(() => {
     const calculateMaxHeight = () => {
       const viewportHeight = window.innerHeight;
-      setMaxHeight(Math.floor(viewportHeight * 0.1));
+      setMaxHeight(Math.floor(viewportHeight * 0.2));
     };
 
     calculateMaxHeight();
-    window.addEventListener('resize', calculateMaxHeight);
-    return () => window.removeEventListener('resize', calculateMaxHeight);
+    window.addEventListener("resize", calculateMaxHeight);
+    return () => window.removeEventListener("resize", calculateMaxHeight);
   }, []);
 
   // Calculate height based on content
@@ -36,17 +35,11 @@ export default function AutoExpandingInput({
     if (hiddenDivRef.current && textareaRef.current) {
       // Copy content to hidden div to measure height
       hiddenDivRef.current.textContent = value || placeholder;
-      
-      // Get computed styles from textarea
-      const textareaStyles = window.getComputedStyle(textareaRef.current);
-      const lineHeight = parseFloat(textareaStyles.lineHeight);
-      const paddingTop = parseFloat(textareaStyles.paddingTop) || 0;
-      const paddingBottom = parseFloat(textareaStyles.paddingBottom) || 0;
-      
+
       // Calculate required height
       const scrollHeight = hiddenDivRef.current.scrollHeight;
-      const contentHeight = scrollHeight + 16; // Add larger buffer for more growth per line
-      
+      const contentHeight = scrollHeight + 16; // Buffer for growth
+
       // Apply constraints
       const newHeight = Math.min(Math.max(contentHeight, minHeight), maxHeight);
       setHeight(newHeight);
@@ -54,7 +47,7 @@ export default function AutoExpandingInput({
   }, [value, minHeight, maxHeight, placeholder]);
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -68,77 +61,72 @@ export default function AutoExpandingInput({
   };
 
   return (
-    <div 
-      className={cn("bg-white transition-all duration-200 ease-out", className)}
-      style={{ minHeight: `${height}px` }}
+    <div
+      className={cn(
+        "bg-gray-50 rounded-2xl border border-gray-200/80 transition-all duration-200 ease-out",
+        "focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200",
+        className
+      )}
     >
-      <form onSubmit={handleSubmit} className="px-4 py-2.5">
-        <div className="flex items-start gap-2">
-          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1.5" />
-          <div className="flex-1 flex items-start gap-2 relative">
-            {/* Hidden div for measuring content height */}
-            <div
-              ref={hiddenDivRef}
-              className="absolute invisible whitespace-pre-wrap break-words font-mono text-sm leading-normal"
-              style={{
-                width: 'calc(100% - 90px)', // Account for button width
-                wordBreak: 'break-word',
-                padding: '6px 0'
-              }}
-              aria-hidden="true"
-            />
-            
-            {/* Actual textarea */}
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              className={cn(
-                "flex-1 bg-transparent font-mono text-sm text-gray-700 leading-normal",
-                "outline-none placeholder:text-gray-400 resize-none py-1",
-                "overflow-hidden" // No scrollbar by default
-              )}
-              style={{
-                height: `${Math.max(24, height - 16)}px`, // Subtract padding
-                overflowY: height >= maxHeight ? 'auto' : 'hidden'
-              }}
-              disabled={isLoading}
-              autoComplete="off"
-              spellCheck="false"
-            />
-            
-            {/* Submit button */}
-            <button
-              type="submit"
-              disabled={!value.trim() || isLoading}
-              className={cn(
-                "px-3 py-1 rounded-lg transition-all duration-200",
-                "flex-shrink-0 flex items-center gap-1.5 self-end mb-0.5",
-                value.trim() && !isLoading
-                  ? "text-white hover:shadow-md"
-                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-              )}
-              style={{
-                backgroundColor: value.trim() && !isLoading ? customColors.primary : undefined
-              }}
-              onMouseEnter={(e) => {
-                if (value.trim() && !isLoading) {
-                  e.currentTarget.style.backgroundColor = customColors.primaryDark;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (value.trim() && !isLoading) {
-                  e.currentTarget.style.backgroundColor = customColors.primary;
-                }
-              }}
-            >
-              <span className="text-sm font-medium">Send</span>
-              <Send className="w-3.5 h-3.5" />
-            </button>
-          </div>
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-start gap-2 p-2"
+        style={{ minHeight: `${height}px` }}
+      >
+        <div className="flex-1 flex items-start relative">
+          {/* Hidden div for measuring content height */}
+          <div
+            ref={hiddenDivRef}
+            className="absolute invisible whitespace-pre-wrap break-words font-sans text-base leading-relaxed"
+            style={{
+              width: "100%",
+              wordBreak: "break-word",
+              padding: "8px 0",
+            }}
+            aria-hidden="true"
+          />
+
+          {/* Actual textarea */}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className={cn(
+              "w-full flex-1 bg-transparent font-sans text-base text-slate-800",
+              "outline-none placeholder:text-slate-400 resize-none px-2 pt-1 pb-2",
+              "overflow-hidden"
+            )}
+            style={{
+              height: `${Math.max(24, height - 16)}px`,
+              overflowY: height >= maxHeight ? "auto" : "hidden",
+            }}
+            disabled={isLoading}
+            autoComplete="off"
+            spellCheck="false"
+          />
         </div>
+        {/* Submit button */}
+        <button
+          type="submit"
+          disabled={!value.trim() || isLoading}
+          className={cn(
+            "w-9 h-9 rounded-lg transition-all duration-200",
+            "flex items-center justify-center self-end",
+            value.trim() && !isLoading
+              ? "text-white"
+              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+          )}
+          style={{
+            backgroundColor:
+              value.trim() && !isLoading
+                ? "var(--custom-primary-color)"
+                : undefined,
+          }}
+        >
+          <ArrowUp className="w-4 h-4" />
+        </button>
       </form>
     </div>
   );
