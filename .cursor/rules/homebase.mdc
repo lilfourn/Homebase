@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- In client folder we use yarn as package manager, in backend we use npm
+## Development Principles
+
+- Always fully analyze every possible error origin and every possible solution
+- We will always pick the best practice and most robust option

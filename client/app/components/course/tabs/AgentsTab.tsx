@@ -1,7 +1,21 @@
 "use client";
 
 import { useAuth, useUser } from "@clerk/nextjs";
-import { AlertCircle, BookOpen, ClipboardCheck, FileText, GraduationCap, Loader2, Plus, Search, X, Brain, FileSearch, MessageSquare, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  Brain,
+  ClipboardCheck,
+  FileSearch,
+  FileText,
+  GraduationCap,
+  Loader2,
+  MessageSquare,
+  Plus,
+  Search,
+  X,
+  Zap,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { generateTaskTitle } from "../../../api/agents.api";
 import { getImportedFiles } from "../../../api/googleDrive.api";
@@ -148,28 +162,32 @@ export default function AgentsTab({ course }: AgentsTabProps) {
   const [researchPrompt, setResearchPrompt] = useState<string>("");
 
   // Convert tasks to completions format
-  const completions = React.useMemo(() => 
-    tasks
-      .filter((task) => task.status === "completed" || task.status === "failed") // Only show completed or failed tasks
-      .map((task) => ({
-        id: task.id,
-        agentType: task.agentType,
-        taskName: task.taskName,
-        status: task.status as "completed" | "failed" | "processing",
-        completedAt: task.completedAt
-          ? new Date(task.completedAt)
-          : new Date(task.createdAt),
-        files: task.files || [],
-        result: task.result,
-      })),
+  const completions = React.useMemo(
+    () =>
+      tasks
+        .filter(
+          (task) => task.status === "completed" || task.status === "failed"
+        ) // Only show completed or failed tasks
+        .map((task) => ({
+          id: task.id,
+          agentType: task.agentType,
+          taskName: task.taskName,
+          status: task.status as "completed" | "failed" | "processing",
+          completedAt: task.completedAt
+            ? new Date(task.completedAt)
+            : new Date(task.createdAt),
+          files: task.files || [],
+          result: task.result,
+        })),
     [tasks] // Only recalculate when tasks array changes
   );
 
   // Find any currently processing tasks
-  const activeTasks = React.useMemo(() => 
-    tasks.filter(
-      (task) => task.status === "processing" || task.status === "queued"
-    ),
+  const activeTasks = React.useMemo(
+    () =>
+      tasks.filter(
+        (task) => task.status === "processing" || task.status === "queued"
+      ),
     [tasks]
   );
   const currentlyProcessingTask =
@@ -257,7 +275,7 @@ export default function AgentsTab({ course }: AgentsTabProps) {
   // Get the 3 most recent files for this course
   const recentCourseFiles = React.useMemo(() => {
     return courseFiles
-      .filter(file => (file as any).courseId === course._id)
+      .filter((file) => (file as any).courseId === course._id)
       .sort((a, b) => {
         // Sort by upload date (newest first) - assuming there's a timestamp
         // If no timestamp, files will maintain their original order
@@ -272,7 +290,7 @@ export default function AgentsTab({ course }: AgentsTabProps) {
   };
 
   const handleAgentCardClick = (agentId: string) => {
-    if (agentTypes.find(a => a.id === agentId)?.available) {
+    if (agentTypes.find((a) => a.id === agentId)?.available) {
       setSelectedAgentType(agentId);
       setShowAgentModal(true);
     }
@@ -286,9 +304,11 @@ export default function AgentsTab({ course }: AgentsTabProps) {
     });
 
     // Validation: researcher needs either prompt or files, others need files
-    if (selectedAgentType === 'researcher') {
+    if (selectedAgentType === "researcher") {
       if (!researchPrompt && selectedFiles.length === 0) {
-        console.warn("[AgentsTab] Researcher validation failed - needs prompt or files");
+        console.warn(
+          "[AgentsTab] Researcher validation failed - needs prompt or files"
+        );
         alert("Please enter a research topic or select files to analyze.");
         return;
       }
@@ -325,9 +345,9 @@ export default function AgentsTab({ course }: AgentsTabProps) {
               mimeType: (f as any).mimeType || `application/${f.type}`,
             })),
             selectedAgentType,
-            selectedAgentType === 'researcher' ? researchPrompt : null
+            selectedAgentType === "researcher" ? researchPrompt : null
           );
-          
+
           if (titleResponse.success && titleResponse.title) {
             taskName = titleResponse.title;
             console.log("[AgentsTab] Generated title:", taskName);
@@ -341,7 +361,10 @@ export default function AgentsTab({ course }: AgentsTabProps) {
 
       // Fallback to default title if AI generation failed
       if (!taskName) {
-        taskName = `${selectedAgentType.replace("-", " ")} Task - ${new Date().toLocaleTimeString()}`;
+        taskName = `${selectedAgentType.replace(
+          "-",
+          " "
+        )} Task - ${new Date().toLocaleTimeString()}`;
       }
 
       // Create agent task
@@ -351,13 +374,15 @@ export default function AgentsTab({ course }: AgentsTabProps) {
         agentType: selectedAgentType.toLowerCase().replace(" ", "-"),
         config: {
           ...agentConfig,
-          ...(selectedAgentType === 'researcher' && researchPrompt ? { researchPrompt } : {})
+          ...(selectedAgentType === "researcher" && researchPrompt
+            ? { researchPrompt }
+            : {}),
         },
-        files: selectedFiles.map((f) => ({ 
+        files: selectedFiles.map((f) => ({
           fileId: f.id,
           fileName: f.name,
           fileSize: f.size,
-          mimeType: (f as any).mimeType || `application/${f.type}` // Use full mimeType if available, fallback to constructed one
+          mimeType: (f as any).mimeType || `application/${f.type}`, // Use full mimeType if available, fallback to constructed one
         })),
       };
 
@@ -379,41 +404,45 @@ export default function AgentsTab({ course }: AgentsTabProps) {
 
   const agentTypes = [
     {
-      id: 'note-taker',
-      name: 'Note Taker',
-      description: 'Extracts and organizes key information from your documents into structured notes',
+      id: "note-taker",
+      name: "Note Taker",
+      description:
+        "Extracts and organizes key information from your documents into structured notes",
       icon: <FileText className="w-8 h-8" />,
-      gradient: 'from-purple-400 to-pink-400',
-      shadowGradient: 'from-purple-200/50 to-pink-200/50',
-      available: true
+      gradient: "from-purple-400 to-pink-400",
+      shadowGradient: "from-purple-200/50 to-pink-200/50",
+      available: true,
     },
     {
-      id: 'researcher', 
-      name: 'Researcher',
-      description: 'Analyzes multiple documents for research insights with web search capabilities',
+      id: "researcher",
+      name: "Researcher",
+      description:
+        "Analyzes multiple documents for research insights with web search capabilities",
       icon: <FileSearch className="w-8 h-8" />,
-      gradient: 'from-blue-400 to-cyan-400',
-      shadowGradient: 'from-blue-200/50 to-cyan-200/50',
-      available: true
+      gradient: "from-blue-400 to-cyan-400",
+      shadowGradient: "from-blue-200/50 to-cyan-200/50",
+      available: true,
     },
     {
-      id: 'study-buddy',
-      name: 'Study Buddy',
-      description: 'Creates study materials, flashcards, and practice questions from your content',
+      id: "study-buddy",
+      name: "Study Buddy",
+      description:
+        "Creates study materials, flashcards, and practice questions from your content",
       icon: <Brain className="w-8 h-8" />,
-      gradient: 'from-green-400 to-teal-400',
-      shadowGradient: 'from-green-200/50 to-teal-200/50',
-      available: false
+      gradient: "from-green-400 to-teal-400",
+      shadowGradient: "from-green-200/50 to-teal-200/50",
+      available: false,
     },
     {
-      id: 'assignment',
-      name: 'Assignment Assistant',
-      description: 'Helps plan, structure, and develop your assignments with proper citations',
+      id: "assignment",
+      name: "Assignment Assistant",
+      description:
+        "Helps plan, structure, and develop your assignments with proper citations",
       icon: <Zap className="w-8 h-8" />,
-      gradient: 'from-orange-400 to-yellow-400',
-      shadowGradient: 'from-orange-200/50 to-yellow-200/50',
-      available: false
-    }
+      gradient: "from-orange-400 to-yellow-400",
+      shadowGradient: "from-orange-200/50 to-yellow-200/50",
+      available: false,
+    },
   ];
 
   return (
@@ -575,22 +604,28 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                   onClick={() => handleAgentCardClick(agent.id)}
                   className={`
                     relative group cursor-pointer transition-all duration-300 transform hover:scale-105
-                    ${!agent.available ? 'opacity-60 cursor-not-allowed hover:scale-100' : ''}
+                    ${
+                      !agent.available
+                        ? "opacity-60 cursor-not-allowed hover:scale-100"
+                        : ""
+                    }
                   `}
                 >
                   {/* Gradient Shadow */}
-                  <div 
+                  <div
                     className={`
                       absolute inset-0 bg-gradient-to-r ${agent.shadowGradient} 
                       blur-xl opacity-50 group-hover:opacity-70 transition-opacity duration-300
                       rounded-2xl transform translate-y-4
                     `}
                   />
-                  
+
                   {/* Card Content */}
                   <div className="relative bg-white rounded-2xl p-6 border border-gray-100 shadow-lg h-full flex flex-col">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className={`p-3 rounded-xl bg-gradient-to-r ${agent.gradient} text-white flex-shrink-0`}>
+                      <div
+                        className={`p-3 rounded-xl bg-gradient-to-r ${agent.gradient} text-white flex-shrink-0`}
+                      >
                         {agent.icon}
                       </div>
                       <div className="flex-1 flex flex-col">
@@ -628,7 +663,11 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-2xl font-bold text-gray-900">
-                          Configure {agentTypes.find(a => a.id === selectedAgentType)?.name}
+                          Configure{" "}
+                          {
+                            agentTypes.find((a) => a.id === selectedAgentType)
+                              ?.name
+                          }
                         </h2>
                         <p className="text-sm text-gray-500 mt-1">
                           Select files and configure your agent to get started.
@@ -650,7 +689,7 @@ export default function AgentsTab({ course }: AgentsTabProps) {
 
                   <div className="flex-1 overflow-y-auto px-8 py-6">
                     {/* Research Prompt Section - Only for Researcher Agent */}
-                    {selectedAgentType === 'researcher' && (
+                    {selectedAgentType === "researcher" && (
                       <div className="mb-6">
                         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-100">
                           <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -658,7 +697,8 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                             Research Topic
                           </h3>
                           <p className="text-sm text-gray-600 mb-4">
-                            What would you like to research? Be specific about your topic or question.
+                            What would you like to research? Be specific about
+                            your topic or question.
                           </p>
                           <textarea
                             value={researchPrompt}
@@ -666,10 +706,13 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                             placeholder="e.g., 'Compare the environmental impact of electric vs hydrogen vehicles' or 'Analyze the role of artificial intelligence in modern healthcare'"
                             className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
                             rows={3}
-                            disabled={isLoading || currentlyProcessingTask !== null}
+                            disabled={
+                              isLoading || currentlyProcessingTask !== null
+                            }
                           />
                           <p className="text-xs text-gray-500 mt-2">
-                            Files below are optional and will be used as additional context for your research.
+                            Files below are optional and will be used as
+                            additional context for your research.
                           </p>
                         </div>
                       </div>
@@ -680,52 +723,93 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                       <div className="bg-gray-50 rounded-xl p-6">
                         <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
                           <FileText className="w-5 h-5 text-gray-600" />
-                          Files {selectedAgentType === 'researcher' && <span className="text-xs text-gray-500 font-normal">(Optional)</span>}
+                          Files{" "}
+                          {selectedAgentType === "researcher" && (
+                            <span className="text-xs text-gray-500 font-normal">
+                              (Optional)
+                            </span>
+                          )}
                         </h3>
-                        
+
                         {/* Recent Files Display - Show when there are recent files */}
                         {recentCourseFiles.length > 0 && (
                           <div className="mb-4">
-                            <p className="text-sm text-gray-600 mb-3">Recently uploaded</p>
+                            <p className="text-sm text-gray-600 mb-3">
+                              Recently uploaded
+                            </p>
                             <div className="space-y-2">
                               {recentCourseFiles.map((file) => {
-                                const isSelected = selectedFiles.some(f => f.id === file.id);
-                                const selectedAgent = agentTypes.find(a => a.id === selectedAgentType);
+                                const isSelected = selectedFiles.some(
+                                  (f) => f.id === file.id
+                                );
+                                const selectedAgent = agentTypes.find(
+                                  (a) => a.id === selectedAgentType
+                                );
                                 return (
                                   <button
                                     key={file.id}
                                     onClick={() => {
                                       if (isSelected) {
-                                        setSelectedFiles(selectedFiles.filter(f => f.id !== file.id));
+                                        setSelectedFiles(
+                                          selectedFiles.filter(
+                                            (f) => f.id !== file.id
+                                          )
+                                        );
                                       } else {
-                                        setSelectedFiles([...selectedFiles, file]);
+                                        setSelectedFiles([
+                                          ...selectedFiles,
+                                          file,
+                                        ]);
                                       }
                                     }}
                                     className={`
                                       w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left
-                                      ${isSelected 
-                                        ? 'bg-white border-2' 
-                                        : 'bg-white hover:bg-gray-50 border border-gray-200'
+                                      ${
+                                        isSelected
+                                          ? "bg-white border-2"
+                                          : "bg-white hover:bg-gray-50 border border-gray-200"
                                       }
                                     `}
                                     style={{
-                                      borderColor: isSelected 
-                                        ? selectedAgent?.gradient.includes('purple') ? '#a855f7' 
-                                          : selectedAgent?.gradient.includes('blue') ? '#3b82f6'
-                                          : selectedAgent?.gradient.includes('green') ? '#10b981'
-                                          : '#f97316'
+                                      borderColor: isSelected
+                                        ? selectedAgent?.gradient.includes(
+                                            "purple"
+                                          )
+                                          ? "#a855f7"
+                                          : selectedAgent?.gradient.includes(
+                                              "blue"
+                                            )
+                                          ? "#3b82f6"
+                                          : selectedAgent?.gradient.includes(
+                                              "green"
+                                            )
+                                          ? "#10b981"
+                                          : "#f97316"
                                         : undefined,
                                     }}
                                   >
                                     <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                    <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
+                                    <span className="text-sm text-gray-700 truncate flex-1">
+                                      {file.name}
+                                    </span>
                                     {isSelected && (
-                                      <div className="w-2 h-2 rounded-full bg-gradient-to-r" 
+                                      <div
+                                        className="w-2 h-2 rounded-full bg-gradient-to-r"
                                         style={{
-                                          background: selectedAgent?.gradient.includes('purple') ? '#a855f7' 
-                                            : selectedAgent?.gradient.includes('blue') ? '#3b82f6'
-                                            : selectedAgent?.gradient.includes('green') ? '#10b981'
-                                            : '#f97316'
+                                          background:
+                                            selectedAgent?.gradient.includes(
+                                              "purple"
+                                            )
+                                              ? "#a855f7"
+                                              : selectedAgent?.gradient.includes(
+                                                  "blue"
+                                                )
+                                              ? "#3b82f6"
+                                              : selectedAgent?.gradient.includes(
+                                                  "green"
+                                                )
+                                              ? "#10b981"
+                                              : "#f97316",
                                         }}
                                       />
                                     )}
@@ -735,52 +819,77 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                             </div>
                           </div>
                         )}
-                
-                {/* Selected files that aren't in recent files */}
-                {(() => {
-                  const additionalSelectedFiles = selectedFiles.filter(
-                    selected => !recentCourseFiles.some(recent => recent.id === selected.id)
-                  );
-                  return additionalSelectedFiles.length > 0 ? (
-                    <div className="mb-3">
-                      {recentCourseFiles.length > 0 && <div className="border-t border-gray-100 mb-3" />}
-                      <p className="text-xs text-gray-500 mb-2">Also selected</p>
-                      <div className="space-y-2">
-                        {additionalSelectedFiles.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <FileText className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                              <span className="text-xs text-gray-700 truncate">{file.name}</span>
+
+                        {/* Selected files that aren't in recent files */}
+                        {(() => {
+                          const additionalSelectedFiles = selectedFiles.filter(
+                            (selected) =>
+                              !recentCourseFiles.some(
+                                (recent) => recent.id === selected.id
+                              )
+                          );
+                          return additionalSelectedFiles.length > 0 ? (
+                            <div className="mb-3">
+                              {recentCourseFiles.length > 0 && (
+                                <div className="border-t border-gray-100 mb-3" />
+                              )}
+                              <p className="text-xs text-gray-500 mb-2">
+                                Also selected
+                              </p>
+                              <div className="space-y-2">
+                                {additionalSelectedFiles.map((file) => (
+                                  <div
+                                    key={file.id}
+                                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                                  >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <FileText className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                      <span className="text-xs text-gray-700 truncate">
+                                        {file.name}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() =>
+                                        setSelectedFiles(
+                                          selectedFiles.filter(
+                                            (f) => f.id !== file.id
+                                          )
+                                        )
+                                      }
+                                      className="text-gray-400 hover:text-gray-600 ml-2"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                            <button
-                              onClick={() => setSelectedFiles(selectedFiles.filter(f => f.id !== file.id))}
-                              className="text-gray-400 hover:text-gray-600 ml-2"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-                
-                {/* Show "No files selected" only when there are no recent files and no selected files */}
-                {recentCourseFiles.length === 0 && selectedFiles.length === 0 && (
-                  <p className="text-xs text-gray-500 mb-3">No files selected</p>
-                )}
+                          ) : null;
+                        })()}
+
+                        {/* Show "No files selected" only when there are no recent files and no selected files */}
+                        {recentCourseFiles.length === 0 &&
+                          selectedFiles.length === 0 && (
+                            <p className="text-xs text-gray-500 mb-3">
+                              No files selected
+                            </p>
+                          )}
 
                         <button
                           onClick={() => setShowFileModal(true)}
-                          disabled={isLoading || currentlyProcessingTask !== null}
+                          disabled={
+                            isLoading || currentlyProcessingTask !== null
+                          }
                           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 rounded-lg border border-dashed border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-4 h-4 text-gray-500" />
                           <span className="text-sm font-medium text-gray-700">
-                            {selectedFiles.length > 0 ? 'Add More Files' : 'Select Files'}
+                            {selectedFiles.length > 0
+                              ? "Add More Files"
+                              : "Select Files"}
                           </span>
                         </button>
-              </div>
+                      </div>
 
                       {/* Agent Selection */}
                       <div className="bg-gray-50 rounded-xl p-6">
@@ -789,41 +898,64 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                           Agent Type
                         </h3>
                         <div className="grid grid-cols-1 gap-3">
-                          {agentTypes.filter(agent => agent.available).map((agent) => {
-                            const isSelected = selectedAgentType === agent.id;
-                            return (
-                              <button
-                                key={agent.id}
-                                onClick={() => setSelectedAgentType(agent.id)}
-                                disabled={isLoading || currentlyProcessingTask !== null || !agent.available}
-                                className={`
+                          {agentTypes
+                            .filter((agent) => agent.available)
+                            .map((agent) => {
+                              const isSelected = selectedAgentType === agent.id;
+                              return (
+                                <button
+                                  key={agent.id}
+                                  onClick={() => setSelectedAgentType(agent.id)}
+                                  disabled={
+                                    isLoading ||
+                                    currentlyProcessingTask !== null ||
+                                    !agent.available
+                                  }
+                                  className={`
                                   p-4 rounded-lg transition-all text-left relative overflow-hidden
-                                  ${isSelected 
-                                    ? 'bg-white shadow-md' 
-                                    : 'bg-white hover:shadow-sm'}
-                                  ${isLoading || currentlyProcessingTask !== null ? 'opacity-50 cursor-not-allowed' : ''}
+                                  ${
+                                    isSelected
+                                      ? "bg-white shadow-md"
+                                      : "bg-white hover:shadow-sm"
+                                  }
+                                  ${
+                                    isLoading ||
+                                    currentlyProcessingTask !== null
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : ""
+                                  }
                                 `}
-                              >
-                                {isSelected && (
-                                  <div 
-                                    className={`absolute inset-0 bg-gradient-to-r ${agent.gradient} opacity-5`}
-                                  />
-                                )}
-                                <div className="relative flex items-start gap-3">
-                                  <div className={`p-2 rounded-lg bg-gradient-to-r ${agent.gradient} text-white`}>
-                                    {React.cloneElement(agent.icon, { className: "w-5 h-5" })}
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className="text-sm font-semibold text-gray-900">{agent.name}</p>
-                                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">{agent.description}</p>
-                                  </div>
+                                >
                                   {isSelected && (
-                                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${agent.gradient} flex-shrink-0 mt-2`} />
+                                    <div
+                                      className={`absolute inset-0 bg-gradient-to-r ${agent.gradient} opacity-5`}
+                                    />
                                   )}
-                                </div>
-                              </button>
-                            );
-                          })}
+                                  <div className="relative flex items-start gap-3">
+                                    <div
+                                      className={`p-2 rounded-lg bg-gradient-to-r ${agent.gradient} text-white`}
+                                    >
+                                      {React.cloneElement(agent.icon, {
+                                        className: "w-5 h-5",
+                                      })}
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        {agent.name}
+                                      </p>
+                                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                        {agent.description}
+                                      </p>
+                                    </div>
+                                    {isSelected && (
+                                      <div
+                                        className={`w-2 h-2 rounded-full bg-gradient-to-r ${agent.gradient} flex-shrink-0 mt-2`}
+                                      />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
                         </div>
                       </div>
 
@@ -833,14 +965,16 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                           <MessageSquare className="w-5 h-5 text-gray-600" />
                           Configuration
                         </h3>
-                        
+
                         <div className="mb-6">
                           <AgentConfig
                             agentType={selectedAgentType}
                             config={agentConfig}
                             onChange={setAgentConfig}
                             courseColors={courseColors}
-                            isDisabled={isLoading || currentlyProcessingTask !== null}
+                            isDisabled={
+                              isLoading || currentlyProcessingTask !== null
+                            }
                           />
                         </div>
                       </div>
@@ -851,11 +985,17 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                   <div className="px-8 py-6 border-t border-gray-100 bg-gray-50">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
-                        {selectedAgentType === 'researcher' && researchPrompt && (
-                          <span className="mr-3">Research topic provided</span>
-                        )}
+                        {selectedAgentType === "researcher" &&
+                          researchPrompt && (
+                            <span className="mr-3">
+                              Research topic provided
+                            </span>
+                          )}
                         {selectedFiles.length > 0 && (
-                          <span>{selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected</span>
+                          <span>
+                            {selectedFiles.length} file
+                            {selectedFiles.length > 1 ? "s" : ""} selected
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center gap-3">
@@ -873,20 +1013,28 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                         <button
                           onClick={handleAgentSubmit}
                           disabled={
-                            isLoading || 
-                            isGeneratingTitle || 
-                            currentlyProcessingTask !== null || 
-                            !selectedAgentType || 
-                            (selectedAgentType === 'researcher' 
-                              ? (!researchPrompt && selectedFiles.length === 0)
+                            isLoading ||
+                            isGeneratingTitle ||
+                            currentlyProcessingTask !== null ||
+                            !selectedAgentType ||
+                            (selectedAgentType === "researcher"
+                              ? !researchPrompt && selectedFiles.length === 0
                               : selectedFiles.length === 0)
                           }
                           className={`
                             px-6 py-2.5 text-sm font-medium text-white rounded-lg transition-all 
                             disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2
-                            ${selectedAgentType && agentTypes.find(a => a.id === selectedAgentType)?.gradient 
-                              ? `bg-gradient-to-r ${agentTypes.find(a => a.id === selectedAgentType)?.gradient}` 
-                              : 'bg-gray-400'}
+                            ${
+                              selectedAgentType &&
+                              agentTypes.find((a) => a.id === selectedAgentType)
+                                ?.gradient
+                                ? `bg-gradient-to-r ${
+                                    agentTypes.find(
+                                      (a) => a.id === selectedAgentType
+                                    )?.gradient
+                                  }`
+                                : "bg-gray-400"
+                            }
                           `}
                         >
                           {isGeneratingTitle ? (
@@ -931,49 +1079,72 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                       Select Files
                     </h2>
                     <p className="text-gray-600">
-                      Choose files from your Google Drive to process with AI agents. You can select multiple files at once.
+                      Choose files from your Google Drive to process with AI
+                      agents. You can select multiple files at once.
                     </p>
                   </div>
-                  
+
                   {/* Recent Files Section */}
                   {recentCourseFiles.length > 0 && (
                     <div className="mb-4">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Recent uploads for this course</h3>
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">
+                        Recent uploads for this course
+                      </h3>
                       <div className="grid grid-cols-1 gap-2">
                         {recentCourseFiles.map((file) => {
-                          const isSelected = selectedFiles.some(f => f.id === file.id);
+                          const isSelected = selectedFiles.some(
+                            (f) => f.id === file.id
+                          );
                           return (
                             <button
                               key={file.id}
                               onClick={() => {
                                 if (isSelected) {
-                                  setSelectedFiles(selectedFiles.filter(f => f.id !== file.id));
+                                  setSelectedFiles(
+                                    selectedFiles.filter(
+                                      (f) => f.id !== file.id
+                                    )
+                                  );
                                 } else {
                                   setSelectedFiles([...selectedFiles, file]);
                                 }
                               }}
                               className={`
                                 flex items-center gap-3 p-3 rounded-lg border transition-all text-left
-                                ${isSelected 
-                                  ? 'border-gray-900 bg-gray-50' 
-                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                ${
+                                  isSelected
+                                    ? "border-gray-900 bg-gray-50"
+                                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                                 }
                               `}
                             >
                               <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {file.name}
+                                </p>
                                 <p className="text-xs text-gray-500">
-                                  {file.type.toUpperCase()} • {(file.size / 1024).toFixed(1)}KB
+                                  {file.type.toUpperCase()} •{" "}
+                                  {(file.size / 1024).toFixed(1)}KB
                                 </p>
                               </div>
                               {isSelected && (
-                                <div 
+                                <div
                                   className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                                  style={{ backgroundColor: courseColors.primary }}
+                                  style={{
+                                    backgroundColor: courseColors.primary,
+                                  }}
                                 >
-                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  <svg
+                                    className="w-3 h-3 text-white"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clipRule="evenodd"
+                                    />
                                   </svg>
                                 </div>
                               )}
@@ -982,11 +1153,13 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                         })}
                       </div>
                       <div className="mt-3 border-t pt-3">
-                        <h3 className="text-sm font-medium text-gray-700 mb-2">All files</h3>
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">
+                          All files
+                        </h3>
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex-1 overflow-y-auto min-h-0 mb-6">
                     <FileLibrary
                       onFileSelect={(files) => {
@@ -1018,11 +1191,15 @@ export default function AgentsTab({ course }: AgentsTabProps) {
                       disabled={selectedFiles.length === 0}
                       className="px-4 py-2 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       style={{
-                        backgroundColor: selectedFiles.length === 0 ? "#9ca3af" : courseColors.primary,
+                        backgroundColor:
+                          selectedFiles.length === 0
+                            ? "#9ca3af"
+                            : courseColors.primary,
                       }}
                     >
                       <FileText className="mr-2 h-4 w-4" />
-                      Select {selectedFiles.length > 0 && `(${selectedFiles.length})`}
+                      Select{" "}
+                      {selectedFiles.length > 0 && `(${selectedFiles.length})`}
                     </button>
                   </div>
                 </div>

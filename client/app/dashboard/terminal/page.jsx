@@ -5,6 +5,7 @@ import TerminalFileLibrary from "@/app/components/terminal/TerminalFileLibrary";
 import { motion } from "framer-motion";
 import { Bot, CheckCircle2, Flame, Settings, Trophy, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 export default function TerminalPage() {
   const [commandHistory, setCommandHistory] = useState([]);
@@ -14,6 +15,7 @@ export default function TerminalPage() {
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const [hasCompletedCycle, setHasCompletedCycle] = useState(false);
   const [fileLibraryKey, setFileLibraryKey] = useState(0); // Force refresh key
+  const [threadId, setThreadId] = useState(null);
   const terminalRef = useRef(null);
   const fileLibraryRef = useRef(null);
 
@@ -85,6 +87,13 @@ export default function TerminalPage() {
     });
   }, []);
 
+  useEffect(() => {
+    // Initialize threadId on component mount
+    if (!threadId) {
+      setThreadId(uuidv4());
+    }
+  }, []);
+
   // Auto-cycle through tips - stops after one complete cycle
   useEffect(() => {
     if (hasCompletedCycle) return;
@@ -103,7 +112,10 @@ export default function TerminalPage() {
     return () => clearInterval(interval);
   }, [tips.length, hasCompletedCycle]);
 
-
+  // Function to start a new conversation thread
+  const startNewThread = () => {
+    setThreadId(uuidv4());
+  };
 
   // Handler for attaching files from the file library
   const handleAttachFiles = async (files) => {
@@ -124,7 +136,7 @@ export default function TerminalPage() {
           return;
         }
       }
-      
+
       // The attached files will be updated through the onAttachedFilesChange callback
       // No need to manually update here
     }
@@ -133,15 +145,19 @@ export default function TerminalPage() {
   // Handler for when files are removed from terminal
   const handleFilesDetached = () => {
     // Force refresh the file library by incrementing the key
-    setFileLibraryKey(prev => prev + 1);
+    setFileLibraryKey((prev) => prev + 1);
   };
 
   // Handler for refreshing file library
   const refreshFileLibrary = () => {
-    setFileLibraryKey(prev => prev + 1);
+    setFileLibraryKey((prev) => prev + 1);
   };
 
   const handleTerminalMessage = (message, attachedFiles) => {
+    // If the user clears the terminal, start a new thread
+    if (typeof message === "string" && message.toLowerCase() === "clear") {
+      startNewThread();
+    }
     setCommandHistory((prev) => [...prev.slice(-4), message]);
     // TODO: Process attached files with message
     if (attachedFiles && attachedFiles.length > 0) {
@@ -217,14 +233,18 @@ export default function TerminalPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
           {/* Terminal Component - Takes 2 columns */}
-          <div className="lg:col-span-2 flex flex-col gap-4">
+          <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
             <Terminal
               ref={terminalRef}
               onMessage={handleTerminalMessage}
               onFileSelect={handleFilesDetached}
               attachedFiles={attachedFiles}
               onAttachedFilesChange={setAttachedFiles}
-              className="flex-1"
+              temperature={temperature}
+              responseStyle={responseStyle}
+              threadId={threadId}
+              onClear={startNewThread}
+              className="flex-1 min-h-0"
             />
 
             {/* Tips Component - Below terminal, aligned with its bottom */}

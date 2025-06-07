@@ -28,6 +28,10 @@ const Terminal = forwardRef(
       onFileSelect,
       attachedFiles = [],
       onAttachedFilesChange,
+      temperature = 0.7,
+      responseStyle = "normal",
+      threadId,
+      onClear,
     },
     ref
   ) => {
@@ -45,11 +49,11 @@ const Terminal = forwardRef(
     const [copiedId, setCopiedId] = useState(null);
     const messagesEndRef = useRef(null);
     const { getToken } = useAuth();
-    
+
     // Update attached files through parent callback
     const setAttachedFiles = (newFiles) => {
       if (onAttachedFilesChange) {
-        if (typeof newFiles === 'function') {
+        if (typeof newFiles === "function") {
           onAttachedFilesChange((prev) => newFiles(prev));
         } else {
           onAttachedFilesChange(newFiles);
@@ -92,7 +96,7 @@ const Terminal = forwardRef(
             type: file.type,
             size: file.size,
             mimeType: file.mimeType,
-            source: file.source || 'google_drive', // IMPORTANT: Include source field
+            source: file.source || "google_drive", // IMPORTANT: Include source field
             uploadedAt: file.uploadedAt,
             processing: true, // Will be processed when added
           }));
@@ -110,22 +114,22 @@ const Terminal = forwardRef(
           for (const file of newFiles) {
             try {
               let result;
-              
+
               console.log(`[Terminal] Processing file: ${file.fileName}`, {
                 id: file.id,
                 fileId: file.fileId,
                 source: file.source,
-                mimeType: file.mimeType
+                mimeType: file.mimeType,
               });
-              
+
               // Check file source to determine processing method
-              if (file.source === 'local_upload') {
+              if (file.source === "local_upload") {
                 // For local files, get content from our backend
                 const { getTerminalFileContent } = await import(
                   "@/app/api/fileProcessing.api"
                 );
                 const response = await getTerminalFileContent(file.id, token);
-                
+
                 // Format response to match Google Drive structure
                 result = {
                   success: response.success,
@@ -135,11 +139,11 @@ const Terminal = forwardRef(
                   mimeType: response.file.mimeType,
                   size: response.file.size,
                   metadata: {
-                    source: 'local_upload',
-                    uploadedAt: response.file.uploadedAt
+                    source: "local_upload",
+                    uploadedAt: response.file.uploadedAt,
                   },
                   wordCount: response.file.wordCount,
-                  preview: response.file.preview
+                  preview: response.file.preview,
                 };
               } else {
                 // For Google Drive files, use existing method
@@ -156,7 +160,7 @@ const Terminal = forwardRef(
               results.push({
                 fileId: file.id,
                 success: true,
-                data: result
+                data: result,
               });
             } catch (error) {
               console.error("Error processing file:", error);
@@ -181,16 +185,16 @@ const Terminal = forwardRef(
               results.push({
                 fileId: file.id,
                 success: false,
-                error: error.error || error.message || "Failed to process file"
+                error: error.error || error.message || "Failed to process file",
               });
             }
           }
 
           // Batch update all files at once
-          const finalFiles = initialFiles.map(f => {
-            const result = results.find(r => r.fileId === f.id);
+          const finalFiles = initialFiles.map((f) => {
+            const result = results.find((r) => r.fileId === f.id);
             if (!result) return f; // Not a file we just processed
-            
+
             if (result.success) {
               return {
                 ...f,
@@ -295,17 +299,55 @@ const Terminal = forwardRef(
         onMessage(userMessage.content, userMessage.attachedFiles);
       }
 
-      // Simulate AI response (replace with actual API call)
-      setTimeout(() => {
+      try {
+        // Get auth token
+        const token = await getToken();
+
+        // Import terminal API
+        const { processTerminalMessage } = await import(
+          "@/app/api/terminal.api"
+        );
+
+        // Process message with AI and conversation thread
+        const response = await processTerminalMessage(
+          userMessage.content,
+          userMessage.attachedFiles,
+          {
+            temperature: temperature,
+            model: "claude-3-5-sonnet-latest",
+            responseStyle: responseStyle,
+            threadId: threadId,
+          },
+          token
+        );
+
+        // Add AI response
         const aiMessage = {
           id: Date.now() + 1,
           type: "assistant",
-          content: `Processing: "${userMessage.content}"\n\nThis is a placeholder response. The terminal will soon be connected to the base agent for real AI assistance.`,
+          content:
+            response.content ||
+            "I apologize, but I couldn't process your request. Please try again.",
           timestamp: new Date(),
+          metadata: response.metadata,
         };
         setMessages((prev) => [...prev, aiMessage]);
+      } catch (error) {
+        console.error("Error processing terminal message:", error);
+
+        // Add error message
+        const errorMessage = {
+          id: Date.now() + 1,
+          type: "system",
+          content: `⚠️ Error: ${
+            error.message || "Failed to process your request. Please try again."
+          }`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
         setIsLoading(false);
-      }, 1500);
+      }
     };
 
     const formatTimestamp = (timestamp) => {
@@ -320,13 +362,13 @@ const Terminal = forwardRef(
     return (
       <div
         className={cn(
-          "bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col",
+          "bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full",
           className
         )}
       >
         {/* Terminal Header */}
         <div
-          className="px-4 py-3"
+          className="px-4 py-3 flex-shrink-0"
           style={{ backgroundColor: customColors.primary }}
         >
           <div className="flex items-center justify-between">
@@ -336,10 +378,15 @@ const Terminal = forwardRef(
             >
               <TerminalIcon className="w-4 h-4" />
               <span className="text-sm font-mono">homebase-terminal</span>
+              {threadId && (
+                <span className="text-xs font-mono opacity-70">
+                  [thread active]
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() =>
+                onClick={() => {
                   setMessages([
                     {
                       id: Date.now(),
@@ -348,8 +395,11 @@ const Terminal = forwardRef(
                         "HomeBase Terminal v1.0.0\nClaude AI Assistant initialized.\n\nType 'help' for available commands or ask me anything.",
                       timestamp: new Date(),
                     },
-                  ])
-                }
+                  ]);
+                  if (onClear) {
+                    onClear();
+                  }
+                }}
                 className={cn(
                   "text-xs font-mono px-2 py-1 rounded transition-all",
                   customColors.textColor === "#ffffff"
@@ -375,12 +425,7 @@ const Terminal = forwardRef(
         </div>
 
         {/* Terminal Content */}
-        <div
-          className="bg-gray-50 overflow-y-auto font-mono text-sm flex-1"
-          style={{
-            minHeight: "200px",
-          }}
-        >
+        <div className="bg-gray-50 overflow-y-auto font-mono text-sm flex-1 min-h-0">
           <div className="p-4 space-y-2">
             <AnimatePresence initial={false}>
               {messages.map((message) => (
@@ -474,7 +519,7 @@ const Terminal = forwardRef(
         </div>
 
         {/* Attached Files Bar */}
-        <div className="border-t border-gray-200">
+        <div className="border-t border-gray-200 flex-shrink-0">
           <AttachedFilesBar
             attachedFiles={attachedFiles}
             setAttachedFiles={setAttachedFiles}

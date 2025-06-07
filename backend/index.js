@@ -15,6 +15,7 @@ const syllabusRoutes = require("./routes/syllabus.routes");
 const todoRoutes = require("./routes/todo.route");
 const agentRoutes = require("./routes/agent.routes");
 const fileProcessingRoutes = require("./routes/fileProcessing.routes");
+const terminalRoutes = require("./routes/terminal.routes");
 // const agentTaskQueue = require("./services/queues/agentTaskQueue"); // Removed - no queuing
 // const agentTaskWorker = require("./services/workers/agentTaskWorker"); // Removed - no queuing
 const app = express();
@@ -45,10 +46,28 @@ app.use(express.json({ limit: "10mb" })); // Allows us to send information in js
 app.use(express.urlencoded({ extended: false, limit: "10mb" })); // Allows to send form data
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://f498-2600-4040-9e88-2f00-70e4-5900-49b9-2276.ngrok-free.app",
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "https://f498-2600-4040-9e88-2f00-70e4-5900-49b9-2276.ngrok-free.app",
+      ];
+      
+      // Allow any localhost port in development
+      if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true, // <-- this tells Express to send Access-Control-Allow-Credentials: true
   })
 );
@@ -78,6 +97,7 @@ app.use("/api/syllabus", syllabusRoutes);
 app.use("/api/todos", todoRoutes);
 app.use("/api/agents", agentRoutes);
 app.use("/api/file-processing", fileProcessingRoutes);
+app.use("/api/terminal", terminalRoutes);
 
 app.get("/", async (req, res) => {
   res.send("Good Job");

@@ -1,25 +1,39 @@
-import { ChatAnthropic } from "@langchain/anthropic";
-import { tool } from "@langchain/core/tools";
-import { MemorySaver } from "@langchain/langgraph";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { z } from "zod";
-import webSearchService from "../webSearchService.js";
+const { ChatAnthropic } = require("@langchain/anthropic");
+const { tool } = require("@langchain/core/tools");
+const { MemorySaver } = require("@langchain/langgraph");
+const { createReactAgent } = require("@langchain/langgraph/prebuilt");
+const { z } = require("zod");
+const webSearchService = require("../webSearchServiceImpl.js");
+const { getSystemPromptForStyle } = require("../../config/responseStyles.js");
 
 /**
  * Base Agent Class - Foundation for all AI agents in the system
  * Provides web search and content extraction capabilities
  */
-export class BaseAgent {
+class BaseAgent {
   constructor(config = {}) {
     // Default configuration
     this.config = {
-      modelName: "claude-3-7-sonnet-latest",
+      modelName: "claude-3-5-sonnet-latest",
       temperature: 0.5,
       maxTokens: 4096,
-      systemPrompt:
-        "You are a helpful AI assistant with web search capabilities.",
+      responseStyle: "normal",
+      systemPrompt: null, // Will be set based on responseStyle
+      enableMemory: true, // Enable LangGraph memory by default
       ...config,
     };
+
+    // Set system prompt based on response style if not explicitly provided
+    if (!this.config.systemPrompt) {
+      this.config.systemPrompt = getSystemPromptForStyle(
+        this.config.responseStyle
+      );
+    }
+
+    // Check for API key
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY environment variable is required");
+    }
 
     // Initialize the model
     this.model = new ChatAnthropic({
@@ -282,8 +296,9 @@ export class BaseAgent {
     };
 
     // Add system prompt if provided
-    if (this.config.systemPrompt) {
-      agentConfig.stateModifier = this.config.systemPrompt;
+    let systemPrompt = this.config.systemPrompt;
+    if (systemPrompt) {
+      agentConfig.stateModifier = systemPrompt;
     }
 
     // Add custom state schema if provided
@@ -307,8 +322,8 @@ export class BaseAgent {
    */
   async invoke(input, options = {}) {
     try {
-      // Ensure input has the correct format
-      const formattedInput = this.formatInput(input);
+      // Ensure input has the correct format with memory optimization
+      const formattedInput = await this.formatInput(input);
 
       // Add any runtime configuration
       const invokeOptions = {
@@ -339,7 +354,7 @@ export class BaseAgent {
    */
   async *stream(input, options = {}) {
     try {
-      const formattedInput = this.formatInput(input);
+      const formattedInput = await this.formatInput(input);
 
       const streamOptions = {
         ...options,
@@ -364,42 +379,44 @@ export class BaseAgent {
   }
 
   /**
-   * Format input for the agent
+   * Format input for the agent with memory optimization
    */
-  formatInput(input) {
+  async formatInput(input) {
     // Handle null or undefined input
     if (input === null || input === undefined) {
       throw new Error("Input cannot be null or undefined");
     }
 
-    // If input is already properly formatted, return as is
-    if (input.messages) {
-      return input;
-    }
+    let formattedInput;
 
+    // If input is already properly formatted
+    if (input.messages) {
+      formattedInput = input;
+    }
     // If input is a string, convert to message format
-    if (typeof input === "string") {
-      return {
+    else if (typeof input === "string") {
+      formattedInput = {
         messages: [{ role: "user", content: input }],
       };
     }
-
     // If input is an array of messages, wrap it
-    if (Array.isArray(input)) {
-      return { messages: input };
+    else if (Array.isArray(input)) {
+      formattedInput = { messages: input };
     }
-
     // If input is a single message object with role and content
-    if (input.role && input.content) {
-      return {
+    else if (input.role && input.content) {
+      formattedInput = {
         messages: [input],
       };
     }
-
     // Otherwise, throw an error for invalid input
-    throw new Error(
-      "Invalid input format. Expected string, message object, or messages array."
-    );
+    else {
+      throw new Error(
+        "Invalid input format. Expected string, message object, or messages array."
+      );
+    }
+
+    return formattedInput;
   }
 
   /**
@@ -453,6 +470,13 @@ export class BaseAgent {
   updateConfig(newConfig) {
     this.config = { ...this.config, ...newConfig };
 
+    // Update system prompt if response style changed
+    if (newConfig.responseStyle && !newConfig.systemPrompt) {
+      this.config.systemPrompt = getSystemPromptForStyle(
+        newConfig.responseStyle
+      );
+    }
+
     // Recreate model if model config changed
     if (newConfig.modelName || newConfig.temperature || newConfig.maxTokens) {
       this.model = new ChatAnthropic({
@@ -483,12 +507,68 @@ export class BaseAgent {
   getConfig() {
     return { ...this.config };
   }
+
+  /**
+   * Create LangChain message objects from generic message format
+   */
+  createLangChainMessage(msg) {
+    const {
+      HumanMessage,
+      AIMessage,
+      SystemMessage,
+    } = require("@langchain/core/messages");
+
+    const content = msg.content || msg.text || "";
+    const role = msg.role || "user";
+
+    switch (role) {
+      case "user":
+      case "human":
+        return new HumanMessage(content);
+      case "assistant":
+      case "ai":
+        return new AIMessage(content);
+      case "system":
+        return new SystemMessage(content);
+      default:
+        return new HumanMessage(content);
+    }
+  }
+
+  /**
+   * Convert LangChain messages back to generic format
+   */
+  convertLangChainMessages(langChainMessages) {
+    return langChainMessages.map((msg) => {
+      const type = msg._getType();
+      let role = "user";
+
+      switch (type) {
+        case "human":
+          role = "user";
+          break;
+        case "ai":
+          role = "assistant";
+          break;
+        case "system":
+          role = "system";
+          break;
+      }
+
+      return {
+        role,
+        content: msg.content,
+      };
+    });
+  }
 }
 
 // Export a factory function for creating agents
-export function createBaseAgent(config = {}) {
+function createBaseAgent(config = {}) {
   return new BaseAgent(config);
 }
 
-// Also export as default
-export default BaseAgent;
+// Export for CommonJS
+module.exports = BaseAgent;
+module.exports.createBaseAgent = createBaseAgent;
+module.exports.BaseAgent = BaseAgent;
